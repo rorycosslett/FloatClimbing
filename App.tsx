@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ClimbProvider } from './src/context/ClimbContext';
 import LogScreen from './src/screens/LogScreen';
@@ -52,11 +53,11 @@ export default function App() {
               }}
             />
             <Tab.Screen
-              name="Report"
+              name="Insights"
               component={ReportScreen}
               options={{
                 tabBarIcon: ({ color }) => (
-                  <Text style={{ fontSize: 24, color }}>▤</Text>
+                  <Ionicons name="trending-up" size={24} color={color} />
                 ),
               }}
             />

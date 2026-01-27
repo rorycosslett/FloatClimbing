@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,20 +14,72 @@ import { ClimbType } from '../types';
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 export default function LogScreen() {
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
-  const { addClimb } = useClimbs();
+  const [elapsed, setElapsed] = useState(0);
+  const { addClimb, activeSession, startSession, endSession, getSessionClimbCount } = useClimbs();
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (activeSession) {
+      const updateElapsed = () => {
+        const start = new Date(activeSession.startTime).getTime();
+        setElapsed(Date.now() - start);
+      };
+      updateElapsed();
+      interval = setInterval(updateElapsed, 1000);
+    } else {
+      setElapsed(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeSession]);
 
   const handleLog = (grade: string, status: 'send' | 'attempt') => {
     addClimb(grade, selectedType, status);
-    const message = status === 'attempt' ? `${grade} attempt` : `${grade} logged`;
-    Alert.alert('', message, [{ text: 'OK' }], { cancelable: true });
+    const message = status === 'attempt' ? `${grade} attempt logged` : `${grade} send logged`;
+    Alert.alert('', `✓ ${message}`, [{ text: 'OK' }], { cancelable: true });
   };
+
+  const handleSessionToggle = () => {
+    if (activeSession) {
+      const count = endSession();
+      Alert.alert('', `Session ended - ${count} climb${count !== 1 ? 's' : ''}`, [{ text: 'OK' }], { cancelable: true });
+    } else {
+      startSession();
+      Alert.alert('', 'Session started', [{ text: 'OK' }], { cancelable: true });
+    }
+  };
+
+  const climbCount = getSessionClimbCount();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Log Climb/Attempt</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Log Climb/Attempt</Text>
+          <Pressable
+            style={[styles.sessionBtn, activeSession ? styles.sessionBtnEnd : styles.sessionBtnStart]}
+            onPress={handleSessionToggle}
+          >
+            <Text style={styles.sessionBtnText}>
+              {activeSession ? 'End Session' : 'Start Session'}
+            </Text>
+          </Pressable>
+        </View>
         <View style={styles.segmentControl}>
           {CLIMB_TYPES.map((type) => (
             <Pressable
@@ -50,6 +102,18 @@ export default function LogScreen() {
           ))}
         </View>
       </View>
+
+      {activeSession && (
+        <View style={styles.sessionBanner}>
+          <View style={styles.sessionInfo}>
+            <View style={styles.sessionDot} />
+            <Text style={styles.sessionTimer}>{formatDuration(elapsed)}</Text>
+          </View>
+          <Text style={styles.sessionCount}>
+            {climbCount} climb{climbCount !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
 
       <ScrollView style={styles.gradeList}>
         {grades[selectedType].map((grade) => (
@@ -94,11 +158,62 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   title: {
     fontSize: 17,
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 12,
+    flex: 1,
+  },
+  sessionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+  },
+  sessionBtnStart: {
+    backgroundColor: '#34c759',
+  },
+  sessionBtnEnd: {
+    backgroundColor: '#ff3b30',
+  },
+  sessionBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  sessionBanner: {
+    backgroundColor: '#34c759',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sessionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sessionDot: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#fff',
+    borderRadius: 4,
+  },
+  sessionTimer: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  sessionCount: {
+    color: '#fff',
+    fontSize: 13,
+    opacity: 0.9,
   },
   segmentControl: {
     flexDirection: 'row',

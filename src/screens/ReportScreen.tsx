@@ -75,7 +75,7 @@ export default function ReportScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <Text style={styles.title}>Reporting</Text>
+          <Text style={styles.title}>Insights</Text>
         </View>
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>Loading...</Text>
@@ -87,7 +87,7 @@ export default function ReportScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Reporting</Text>
+        <Text style={styles.title}>Insights</Text>
         <View style={styles.segmentControl}>
           {CLIMB_TYPES.map((type) => (
             <Pressable

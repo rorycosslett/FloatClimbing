@@ -7,4 +7,11 @@ export interface Climb {
   type: ClimbType;
   status: ClimbStatus;
   timestamp: string;
+  sessionId?: string;
+}
+
+export interface Session {
+  id: string;
+  startTime: string;
+  endTime?: string;
 }
