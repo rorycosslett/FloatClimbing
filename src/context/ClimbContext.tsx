@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Climb, ClimbType, ClimbStatus, Session } from '../types';
 import { loadClimbs, saveClimbs, loadSession, saveSession } from '../data/storage';
 
@@ -30,7 +31,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
   const addClimb = (grade: string, type: ClimbType, status: ClimbStatus) => {
     const newClimb: Climb = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       grade,
       type,
       status,
@@ -50,7 +51,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
   const startSession = () => {
     const session: Session = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       startTime: new Date().toISOString(),
     };
     setActiveSession(session);
