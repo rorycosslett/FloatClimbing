@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { Climb, ClimbType } from '../types';
@@ -194,7 +188,8 @@ export default function HistoryScreen() {
                       <View style={styles.sessionTitle}>
                         <Text style={styles.sessionTitleText}>Session</Text>
                         <Text style={styles.sessionTimeRange}>
-                          {formatTimeRange(session.startTime, session.endTime)} · {formatDuration(session.durationMs)}
+                          {formatTimeRange(session.startTime, session.endTime)} ·{' '}
+                          {formatDuration(session.durationMs)}
                         </Text>
                       </View>
                       <View style={styles.sessionStats}>
@@ -211,7 +206,9 @@ export default function HistoryScreen() {
                           <Text style={styles.sessionStatLabel}>Max</Text>
                         </View>
                       </View>
-                      <Text style={[styles.sessionChevron, isExpanded && styles.sessionChevronExpanded]}>
+                      <Text
+                        style={[styles.sessionChevron, isExpanded && styles.sessionChevronExpanded]}
+                      >
                         ›
                       </Text>
                     </Pressable>
@@ -226,7 +223,11 @@ export default function HistoryScreen() {
                               idx === session.climbs.length - 1 && styles.historyItemLast,
                             ]}
                           >
-                            <Text style={climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon}>
+                            <Text
+                              style={
+                                climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon
+                              }
+                            >
                               {climb.status === 'attempt' ? '○' : '✓'}
                             </Text>
                             <Text style={styles.grade}>{climb.grade}</Text>
@@ -256,7 +257,9 @@ export default function HistoryScreen() {
                         idx === sortedLooseClimbs.length - 1 && styles.historyItemLast,
                       ]}
                     >
-                      <Text style={climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon}>
+                      <Text
+                        style={climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon}
+                      >
                         {climb.status === 'attempt' ? '○' : '✓'}
                       </Text>
                       <Text style={styles.grade}>{climb.grade}</Text>

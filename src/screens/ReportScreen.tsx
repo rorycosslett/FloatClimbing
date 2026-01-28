@@ -1,11 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { grades } from '../data/grades';
@@ -53,7 +47,20 @@ export default function ReportScreen() {
       : 0;
 
     const formatDate = (d: Date) => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return `${months[d.getMonth()]} ${d.getDate()}`;
     };
 
@@ -92,18 +99,10 @@ export default function ReportScreen() {
           {CLIMB_TYPES.map((type) => (
             <Pressable
               key={type}
-              style={[
-                styles.segmentBtn,
-                selectedType === type && styles.segmentBtnActive,
-              ]}
+              style={[styles.segmentBtn, selectedType === type && styles.segmentBtnActive]}
               onPress={() => setSelectedType(type)}
             >
-              <Text
-                style={[
-                  styles.segmentText,
-                  selectedType === type && styles.segmentTextActive,
-                ]}
-              >
+              <Text style={[styles.segmentText, selectedType === type && styles.segmentTextActive]}>
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </Text>
             </Pressable>

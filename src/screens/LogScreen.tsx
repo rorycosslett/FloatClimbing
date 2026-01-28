@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { grades } from '../data/grades';
@@ -57,7 +50,9 @@ export default function LogScreen() {
   const handleSessionToggle = () => {
     if (activeSession) {
       const count = endSession();
-      Alert.alert('', `Session ended - ${count} climb${count !== 1 ? 's' : ''}`, [{ text: 'OK' }], { cancelable: true });
+      Alert.alert('', `Session ended - ${count} climb${count !== 1 ? 's' : ''}`, [{ text: 'OK' }], {
+        cancelable: true,
+      });
     } else {
       startSession();
       Alert.alert('', 'Session started', [{ text: 'OK' }], { cancelable: true });
@@ -72,7 +67,10 @@ export default function LogScreen() {
         <View style={styles.headerRow}>
           <Text style={styles.title}>Log Climb/Attempt</Text>
           <Pressable
-            style={[styles.sessionBtn, activeSession ? styles.sessionBtnEnd : styles.sessionBtnStart]}
+            style={[
+              styles.sessionBtn,
+              activeSession ? styles.sessionBtnEnd : styles.sessionBtnStart,
+            ]}
             onPress={handleSessionToggle}
           >
             <Text style={styles.sessionBtnText}>
@@ -84,18 +82,10 @@ export default function LogScreen() {
           {CLIMB_TYPES.map((type) => (
             <Pressable
               key={type}
-              style={[
-                styles.segmentBtn,
-                selectedType === type && styles.segmentBtnActive,
-              ]}
+              style={[styles.segmentBtn, selectedType === type && styles.segmentBtnActive]}
               onPress={() => setSelectedType(type)}
             >
-              <Text
-                style={[
-                  styles.segmentText,
-                  selectedType === type && styles.segmentTextActive,
-                ]}
-              >
+              <Text style={[styles.segmentText, selectedType === type && styles.segmentTextActive]}>
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </Text>
             </Pressable>
@@ -121,19 +111,13 @@ export default function LogScreen() {
             <Text style={styles.gradeLabel}>{grade}</Text>
             <View style={styles.buttons}>
               <Pressable
-                style={({ pressed }) => [
-                  styles.tickBtn,
-                  pressed && styles.tickBtnPressed,
-                ]}
+                style={({ pressed }) => [styles.tickBtn, pressed && styles.tickBtnPressed]}
                 onPress={() => handleLog(grade, 'send')}
               >
                 <Text style={[styles.tickBtnText, styles.sendText]}>✓</Text>
               </Pressable>
               <Pressable
-                style={({ pressed }) => [
-                  styles.attemptBtn,
-                  pressed && styles.attemptBtnPressed,
-                ]}
+                style={({ pressed }) => [styles.attemptBtn, pressed && styles.attemptBtnPressed]}
                 onPress={() => handleLog(grade, 'attempt')}
               >
                 <Text style={[styles.attemptBtnText]}>○</Text>

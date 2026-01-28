@@ -38,27 +38,21 @@ export default function App() {
               name="Log"
               component={LogScreen}
               options={{
-                tabBarIcon: ({ color }) => (
-                  <Text style={{ fontSize: 24, color }}>+</Text>
-                ),
+                tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>+</Text>,
               }}
             />
             <Tab.Screen
               name="History"
               component={HistoryScreen}
               options={{
-                tabBarIcon: ({ color }) => (
-                  <Text style={{ fontSize: 24, color }}>☰</Text>
-                ),
+                tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>☰</Text>,
               }}
             />
             <Tab.Screen
               name="Insights"
               component={ReportScreen}
               options={{
-                tabBarIcon: ({ color }) => (
-                  <Ionicons name="trending-up" size={24} color={color} />
-                ),
+                tabBarIcon: ({ color }) => <Ionicons name="trending-up" size={24} color={color} />,
               }}
             />
           </Tab.Navigator>
