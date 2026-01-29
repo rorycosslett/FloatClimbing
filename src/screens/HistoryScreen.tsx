@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { Climb, ClimbType } from '../types';
 import { grades } from '../data/grades';
+import { colors } from '../theme/colors';
 
 interface GroupedClimb extends Climb {
   index: number;
@@ -184,11 +185,10 @@ export default function HistoryScreen() {
                       style={styles.sessionHeader}
                       onPress={() => toggleSession(session.id)}
                     >
-                      <Text style={styles.sessionIcon}>🧗</Text>
-                      <View style={styles.sessionTitle}>
+                                            <View style={styles.sessionTitle}>
                         <Text style={styles.sessionTitleText}>Session</Text>
                         <Text style={styles.sessionTimeRange}>
-                          {formatTimeRange(session.startTime, session.endTime)} ·{' '}
+                          {session.climbs.length} climbs · {formatTimeRange(session.startTime, session.endTime)} ·{' '}
                           {formatDuration(session.durationMs)}
                         </Text>
                       </View>
@@ -206,10 +206,8 @@ export default function HistoryScreen() {
                           <Text style={styles.sessionStatLabel}>Max</Text>
                         </View>
                       </View>
-                      <Text
-                        style={[styles.sessionChevron, isExpanded && styles.sessionChevronExpanded]}
-                      >
-                        ›
+                      <Text style={styles.sessionChevron}>
+                        {isExpanded ? '▼' : '▶'}
                       </Text>
                     </Pressable>
 
@@ -220,6 +218,7 @@ export default function HistoryScreen() {
                             key={climb.id}
                             style={[
                               styles.historyItem,
+                              styles.sessionClimbItem,
                               idx === session.climbs.length - 1 && styles.historyItemLast,
                             ]}
                           >
@@ -285,19 +284,20 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
+    color: colors.text,
   },
   emptyState: {
     flex: 1,
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyText: {
-    color: '#8e8e93',
+    color: colors.textSecondary,
     fontSize: 16,
   },
   scrollView: {
@@ -321,14 +321,14 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6e6e73',
+    color: colors.textMuted,
     textTransform: 'uppercase',
     marginBottom: 8,
     paddingLeft: 16,
   },
   // Session Card styles
   sessionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
@@ -339,21 +339,17 @@ const styles = StyleSheet.create({
     padding: 14,
     paddingHorizontal: 16,
   },
-  sessionIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
   sessionTitle: {
     flex: 1,
   },
   sessionTitleText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
   },
   sessionTimeRange: {
     fontSize: 12,
-    color: '#8e8e93',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   sessionStats: {
@@ -368,68 +364,74 @@ const styles = StyleSheet.create({
   sessionStatValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
   },
   sessionStatLabel: {
     fontSize: 9,
-    color: '#8e8e93',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
   },
   sessionChevron: {
-    fontSize: 16,
-    color: '#c7c7cc',
-  },
-  sessionChevronExpanded: {
-    transform: [{ rotate: '90deg' }],
+    fontSize: 10,
+    color: colors.textSecondary,
   },
   sessionClimbs: {
     borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
+    borderTopColor: colors.border,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  sessionClimbItem: {
+    backgroundColor: colors.surfaceSecondary,
   },
   // History item styles
   historyGroup: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
   },
   historyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: colors.border,
   },
   historyItemLast: {
     borderBottomWidth: 0,
   },
   sendIcon: {
-    color: '#007aff',
-    fontSize: 14,
+    color: colors.primary,
+    fontSize: 16,
     marginRight: 8,
+    width: 20,
+    textAlign: 'center',
   },
   attemptIcon: {
-    color: '#ff6b35',
-    fontSize: 18,
+    color: colors.warning,
+    fontSize: 16,
     marginRight: 8,
+    width: 20,
+    textAlign: 'center',
   },
   grade: {
     fontSize: 17,
     fontWeight: '500',
+    color: colors.text,
   },
   typeLabel: {
     fontSize: 13,
-    color: '#8e8e93',
+    color: colors.textSecondary,
     marginLeft: 8,
   },
   time: {
     fontSize: 15,
-    color: '#8e8e93',
+    color: colors.textSecondary,
     marginLeft: 'auto',
   },
   deleteBtn: {
-    color: '#ff6b35',
+    color: colors.warning,
     fontSize: 20,
     marginLeft: 12,
     padding: 4,

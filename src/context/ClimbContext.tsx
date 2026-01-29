@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
 import { Climb, ClimbType, ClimbStatus, Session } from '../types';
 import { loadClimbs, saveClimbs, loadSession, saveSession } from '../data/storage';
 
@@ -31,7 +31,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
   const addClimb = (grade: string, type: ClimbType, status: ClimbStatus) => {
     const newClimb: Climb = {
-      id: uuidv4(),
+      id: Crypto.randomUUID(),
       grade,
       type,
       status,
@@ -51,7 +51,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
   const startSession = () => {
     const session: Session = {
-      id: uuidv4(),
+      id: Crypto.randomUUID(),
       startTime: new Date().toISOString(),
     };
     setActiveSession(session);

@@ -2,10 +2,11 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
 import { ClimbProvider } from './src/context/ClimbContext';
+import { colors } from './src/theme/colors';
 import LogScreen from './src/screens/LogScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ReportScreen from './src/screens/ReportScreen';
@@ -20,17 +21,21 @@ export default function App() {
           <Tab.Navigator
             screenOptions={{
               headerShown: false,
-              tabBarActiveTintColor: '#007aff',
-              tabBarInactiveTintColor: '#8e8e93',
+              tabBarActiveTintColor: colors.primary,
+              tabBarInactiveTintColor: colors.textSecondary,
               tabBarStyle: {
-                backgroundColor: '#fff',
-                borderTopColor: '#e5e5e5',
-                paddingTop: 8,
-                paddingBottom: 24,
-                height: 80,
+                backgroundColor: colors.surface,
+                borderTopColor: colors.border,
+                paddingTop: 10,
+                paddingBottom: 20,
+                height: 88,
               },
               tabBarLabelStyle: {
-                fontSize: 10,
+                fontSize: 12,
+                fontWeight: '500',
+              },
+              tabBarIconStyle: {
+                marginBottom: 2,
               },
             }}
           >
@@ -38,26 +43,29 @@ export default function App() {
               name="Log"
               component={LogScreen}
               options={{
-                tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>+</Text>,
+                tabBarIcon: ({ color }) => (
+                  <Ionicons name="add-circle-outline" size={28} color={color} />
+                ),
               }}
             />
             <Tab.Screen
               name="History"
               component={HistoryScreen}
               options={{
-                tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>☰</Text>,
+                tabBarIcon: ({ color }) => <Ionicons name="time-outline" size={28} color={color} />,
               }}
             />
             <Tab.Screen
               name="Insights"
               component={ReportScreen}
               options={{
-                tabBarIcon: ({ color }) => <Ionicons name="trending-up" size={24} color={color} />,
+                tabBarIcon: ({ color }) => <Ionicons name="trending-up" size={28} color={color} />,
               }}
             />
           </Tab.Navigator>
-          <StatusBar style="auto" />
+          <StatusBar style="light" />
         </NavigationContainer>
+        <Toast />
       </ClimbProvider>
     </SafeAreaProvider>
   );

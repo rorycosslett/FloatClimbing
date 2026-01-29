@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { grades } from '../data/grades';
 import { ClimbType } from '../types';
+import { colors } from '../theme/colors';
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
@@ -172,24 +173,25 @@ export default function ReportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12,
+    color: colors.text,
   },
   segmentControl: {
     flexDirection: 'row',
-    backgroundColor: '#e5e5ea',
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: 8,
     padding: 2,
   },
@@ -200,7 +202,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   segmentBtnActive: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -211,10 +213,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
-    color: '#333',
+    color: colors.text,
   },
   segmentTextActive: {
-    color: '#007aff',
+    color: colors.primary,
   },
   content: {
     flex: 1,
@@ -227,12 +229,12 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyText: {
-    color: '#8e8e93',
+    color: colors.textSecondary,
     fontSize: 16,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -241,7 +243,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 12,
-    color: '#333',
+    color: colors.text,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -250,7 +252,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     width: '47%',
-    backgroundColor: '#f8f8f8',
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
@@ -258,11 +260,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#333',
+    color: colors.text,
   },
   statLabel: {
     fontSize: 11,
-    color: '#8e8e93',
+    color: colors.textSecondary,
     marginTop: 4,
   },
 });

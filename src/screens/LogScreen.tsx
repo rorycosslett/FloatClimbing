@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { grades } from '../data/grades';
 import { ClimbType } from '../types';
+import { colors } from '../theme/colors';
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
@@ -44,18 +46,28 @@ export default function LogScreen() {
   const handleLog = (grade: string, status: 'send' | 'attempt') => {
     addClimb(grade, selectedType, status);
     const message = status === 'attempt' ? `${grade} attempt logged` : `${grade} send logged`;
-    Alert.alert('', `✓ ${message}`, [{ text: 'OK' }], { cancelable: true });
+    Toast.show({
+      type: 'success',
+      text1: `✓ ${message}`,
+      visibilityTime: 2000,
+    });
   };
 
   const handleSessionToggle = () => {
     if (activeSession) {
       const count = endSession();
-      Alert.alert('', `Session ended - ${count} climb${count !== 1 ? 's' : ''}`, [{ text: 'OK' }], {
-        cancelable: true,
+      Toast.show({
+        type: 'success',
+        text1: `Session ended - ${count} climb${count !== 1 ? 's' : ''}`,
+        visibilityTime: 2000,
       });
     } else {
       startSession();
-      Alert.alert('', 'Session started', [{ text: 'OK' }], { cancelable: true });
+      Toast.show({
+        type: 'success',
+        text1: 'Session started',
+        visibilityTime: 2000,
+      });
     }
   };
 
@@ -64,20 +76,7 @@ export default function LogScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Log Climb/Attempt</Text>
-          <Pressable
-            style={[
-              styles.sessionBtn,
-              activeSession ? styles.sessionBtnEnd : styles.sessionBtnStart,
-            ]}
-            onPress={handleSessionToggle}
-          >
-            <Text style={styles.sessionBtnText}>
-              {activeSession ? 'End Session' : 'Start Session'}
-            </Text>
-          </Pressable>
-        </View>
+        <Text style={styles.title}>Log Climb/Attempt</Text>
         <View style={styles.segmentControl}>
           {CLIMB_TYPES.map((type) => (
             <Pressable
@@ -126,6 +125,14 @@ export default function LogScreen() {
           </View>
         ))}
       </ScrollView>
+
+      <Pressable
+        style={[styles.fab, activeSession ? styles.fabEnd : styles.fabStart]}
+        onPress={handleSessionToggle}
+      >
+        <Text style={styles.fabIcon}>{activeSession ? '■' : '▶'}</Text>
+        <Text style={styles.fabText}>{activeSession ? 'End Session' : 'Start Session'}</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -133,44 +140,24 @@ export default function LogScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
-    flex: 1,
-  },
-  sessionBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-  },
-  sessionBtnStart: {
-    backgroundColor: '#34c759',
-  },
-  sessionBtnEnd: {
-    backgroundColor: '#ff3b30',
-  },
-  sessionBtnText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 12,
+    color: colors.text,
   },
   sessionBanner: {
-    backgroundColor: '#34c759',
+    backgroundColor: colors.success,
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -201,7 +188,7 @@ const styles = StyleSheet.create({
   },
   segmentControl: {
     flexDirection: 'row',
-    backgroundColor: '#e5e5ea',
+    backgroundColor: colors.surfaceSecondary,
     borderRadius: 8,
     padding: 2,
   },
@@ -212,7 +199,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   segmentBtnActive: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -223,14 +210,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
-    color: '#333',
+    color: colors.text,
   },
   segmentTextActive: {
-    color: '#007aff',
+    color: colors.primary,
   },
   gradeList: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     margin: 16,
     borderRadius: 12,
   },
@@ -240,12 +227,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: colors.border,
   },
   gradeLabel: {
     fontSize: 17,
     fontWeight: '500',
     minWidth: 70,
+    color: colors.text,
   },
   buttons: {
     flexDirection: 'row',
@@ -256,38 +244,71 @@ const styles = StyleSheet.create({
     width: 44,
     height: 36,
     borderWidth: 1,
-    borderColor: '#007aff',
+    borderColor: colors.primary,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   tickBtnPressed: {
-    backgroundColor: '#007aff',
+    backgroundColor: colors.primary,
   },
   tickBtnText: {
     fontSize: 14,
     fontWeight: '600',
   },
   sendText: {
-    color: '#007aff',
+    color: colors.primary,
   },
   attemptBtn: {
     width: 44,
     height: 36,
     borderWidth: 1,
-    borderColor: '#ff6b35',
+    borderColor: colors.warning,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   attemptBtnPressed: {
-    backgroundColor: '#ff6b35',
+    backgroundColor: colors.warning,
   },
   attemptBtnText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ff6b35',
+    color: colors.warning,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    left: '50%',
+    transform: [{ translateX: '-50%' }],
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    gap: 10,
+  },
+  fabStart: {
+    backgroundColor: colors.success,
+  },
+  fabEnd: {
+    backgroundColor: colors.danger,
+  },
+  fabIcon: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  fabText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
