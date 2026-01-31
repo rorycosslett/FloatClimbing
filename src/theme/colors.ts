@@ -16,7 +16,7 @@ export const colors = {
   primary: '#007aff',
   success: '#34c759',
   danger: '#ff3b30',
-  warning: '#ff6b35',
+  warning: '#ffb300',
 
   // Misc
   chevron: '#48484a',

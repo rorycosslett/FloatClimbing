@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Climb, Session } from '../types';
+import { Climb, Session, SessionMetadata } from '../types';
 
 const CLIMBS_KEY = 'climbs';
 const SESSION_KEY = 'activeSession';
+const SESSIONS_KEY = 'sessions';
 
 export async function loadClimbs(): Promise<Climb[]> {
   try {
@@ -49,5 +50,25 @@ export async function saveSession(session: Session | null): Promise<void> {
     }
   } catch (error) {
     console.error('Error saving session:', error);
+  }
+}
+
+export async function loadSessionMetadata(): Promise<Record<string, SessionMetadata>> {
+  try {
+    const data = await AsyncStorage.getItem(SESSIONS_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error('Error loading session metadata:', error);
+    return {};
+  }
+}
+
+export async function saveSessionMetadata(
+  metadata: Record<string, SessionMetadata>
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(metadata));
+  } catch (error) {
+    console.error('Error saving session metadata:', error);
   }
 }

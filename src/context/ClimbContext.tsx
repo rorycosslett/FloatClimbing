@@ -1,17 +1,37 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as Crypto from 'expo-crypto';
-import { Climb, ClimbType, ClimbStatus, Session } from '../types';
-import { loadClimbs, saveClimbs, loadSession, saveSession } from '../data/storage';
+import {
+  Climb,
+  ClimbType,
+  ClimbStatus,
+  Session,
+  SessionSummary,
+  Achievement,
+  SessionMetadata,
+} from '../types';
+import {
+  loadClimbs,
+  saveClimbs,
+  loadSession,
+  saveSession,
+  loadSessionMetadata,
+  saveSessionMetadata,
+} from '../data/storage';
+import { grades } from '../data/grades';
+import { generateSessionName } from '../utils/sessionUtils';
 
 interface ClimbContextType {
   climbs: Climb[];
   isLoading: boolean;
   activeSession: Session | null;
+  sessionMetadata: Record<string, SessionMetadata>;
   addClimb: (grade: string, type: ClimbType, status: ClimbStatus) => void;
   deleteClimb: (id: string) => void;
   startSession: () => void;
-  endSession: () => number;
+  endSession: (name?: string) => SessionSummary | null;
   getSessionClimbCount: () => number;
+  renameSession: (sessionId: string, name: string) => void;
+  getSessionName: (sessionId: string, startTime: string) => string;
 }
 
 const ClimbContext = createContext<ClimbContextType | undefined>(undefined);
@@ -20,23 +40,35 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
   const [climbs, setClimbs] = useState<Climb[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
+  const [sessionMetadata, setSessionMetadata] = useState<Record<string, SessionMetadata>>({});
 
   useEffect(() => {
-    Promise.all([loadClimbs(), loadSession()]).then(([climbData, sessionData]) => {
-      setClimbs(climbData);
-      setActiveSession(sessionData);
-      setIsLoading(false);
-    });
+    Promise.all([loadClimbs(), loadSession(), loadSessionMetadata()]).then(
+      ([climbData, sessionData, metadataData]) => {
+        // Remove any loose climbs (climbs without a sessionId)
+        const validClimbs = climbData.filter((c) => c.sessionId);
+        if (validClimbs.length !== climbData.length) {
+          saveClimbs(validClimbs);
+        }
+        setClimbs(validClimbs);
+        setActiveSession(sessionData);
+        setSessionMetadata(metadataData);
+        setIsLoading(false);
+      }
+    );
   }, []);
 
   const addClimb = (grade: string, type: ClimbType, status: ClimbStatus) => {
+    if (!activeSession) {
+      return; // Cannot add climbs without an active session
+    }
     const newClimb: Climb = {
       id: Crypto.randomUUID(),
       grade,
       type,
       status,
       timestamp: new Date().toISOString(),
-      sessionId: activeSession?.id,
+      sessionId: activeSession.id,
     };
     const updated = [...climbs, newClimb];
     setClimbs(updated);
@@ -58,12 +90,141 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     saveSession(session);
   };
 
-  const endSession = () => {
-    const count = getSessionClimbCount();
+  const endSession = (name?: string): SessionSummary | null => {
+    if (!activeSession) return null;
+
+    const sessionClimbs = climbs.filter((c) => c.sessionId === activeSession.id);
+
+    if (sessionClimbs.length === 0) {
+      setActiveSession(null);
+      saveSession(null);
+      return null;
+    }
+
+    const endTime = new Date().toISOString();
+    const duration = new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
+
+    const sends = sessionClimbs.filter((c) => c.status === 'send');
+    const attempts = sessionClimbs.filter((c) => c.status === 'attempt');
+
+    // Calculate max grade per type for sends in this session
+    const maxGradeByType: SessionSummary['maxGradeByType'] = {
+      boulder: null,
+      sport: null,
+      trad: null,
+    };
+
+    sends.forEach((climb) => {
+      const gradeArray = grades[climb.type];
+      const idx = gradeArray.indexOf(climb.grade);
+      const currentMax = maxGradeByType[climb.type];
+      const currentMaxIdx = currentMax ? gradeArray.indexOf(currentMax) : -1;
+
+      if (idx > currentMaxIdx) {
+        maxGradeByType[climb.type] = climb.grade;
+      }
+    });
+
+    // Detect achievements (PRs)
+    const achievements = detectAchievements(sessionClimbs, climbs, activeSession.id);
+
+    const summary: SessionSummary = {
+      sessionId: activeSession.id,
+      duration,
+      startTime: activeSession.startTime,
+      endTime,
+      totalClimbs: sessionClimbs.length,
+      sends: sends.length,
+      attempts: attempts.length,
+      maxGradeByType,
+      achievements,
+    };
+
+    // Save session name if provided
+    if (name) {
+      const updatedMetadata = { ...sessionMetadata, [activeSession.id]: { name } };
+      setSessionMetadata(updatedMetadata);
+      saveSessionMetadata(updatedMetadata);
+    }
+
     setActiveSession(null);
     saveSession(null);
-    return count;
+
+    return summary;
   };
+
+  const renameSession = (sessionId: string, name: string) => {
+    const updatedMetadata = { ...sessionMetadata, [sessionId]: { name } };
+    setSessionMetadata(updatedMetadata);
+    saveSessionMetadata(updatedMetadata);
+  };
+
+  const getSessionName = (sessionId: string, startTime: string): string => {
+    const metadata = sessionMetadata[sessionId];
+    if (metadata?.name) {
+      return metadata.name;
+    }
+    return generateSessionName(startTime);
+  };
+
+  function detectAchievements(
+    sessionClimbs: Climb[],
+    allClimbs: Climb[],
+    sessionId: string
+  ): Achievement[] {
+    const achievements: Achievement[] = [];
+    const priorClimbs = allClimbs.filter((c) => c.sessionId !== sessionId);
+
+    // Find max grade sent prior to this session for each type
+    const priorMaxByType: Record<ClimbType, number> = {
+      boulder: -1,
+      sport: -1,
+      trad: -1,
+    };
+
+    priorClimbs
+      .filter((c) => c.status === 'send')
+      .forEach((c) => {
+        const idx = grades[c.type].indexOf(c.grade);
+        if (idx > priorMaxByType[c.type]) {
+          priorMaxByType[c.type] = idx;
+        }
+      });
+
+    // Check each session send for PR
+    const sessionSends = sessionClimbs.filter((c) => c.status === 'send');
+    const prsByType: Record<ClimbType, string | null> = {
+      boulder: null,
+      sport: null,
+      trad: null,
+    };
+
+    sessionSends.forEach((c) => {
+      const idx = grades[c.type].indexOf(c.grade);
+      if (idx > priorMaxByType[c.type]) {
+        const currentPr = prsByType[c.type];
+        const currentPrIdx = currentPr ? grades[c.type].indexOf(currentPr) : -1;
+        if (idx > currentPrIdx) {
+          prsByType[c.type] = c.grade;
+        }
+      }
+    });
+
+    // Create achievement entries for PRs
+    (Object.entries(prsByType) as [ClimbType, string | null][]).forEach(([type, grade]) => {
+      if (grade) {
+        const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+        achievements.push({
+          type: 'new_pr',
+          climbType: type,
+          grade,
+          description: `New ${typeLabel} PR: ${grade}`,
+        });
+      }
+    });
+
+    return achievements;
+  }
 
   const getSessionClimbCount = () => {
     if (!activeSession) return 0;
@@ -76,11 +237,14 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         climbs,
         isLoading,
         activeSession,
+        sessionMetadata,
         addClimb,
         deleteClimb,
         startSession,
         endSession,
         getSessionClimbCount,
+        renameSession,
+        getSessionName,
       }}
     >
       {children}

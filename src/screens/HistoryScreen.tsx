@@ -1,13 +1,32 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Modal,
+  TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { Climb, ClimbType } from '../types';
-import { grades } from '../data/grades';
 import { colors } from '../theme/colors';
+import { grades } from '../data/grades';
 
 interface GroupedClimb extends Climb {
   index: number;
+}
+
+interface GradeCount {
+  grade: string;
+  count: number;
+}
+
+interface TypeGradeBreakdown {
+  boulder: GradeCount[];
+  sport: GradeCount[];
+  trad: GradeCount[];
 }
 
 interface SessionData {
@@ -18,7 +37,7 @@ interface SessionData {
   startTime: string;
   endTime: string;
   durationMs: number;
-  maxGrade: string;
+  gradesByType: TypeGradeBreakdown;
 }
 
 function formatTime(timestamp: string): string {
@@ -26,12 +45,6 @@ function formatTime(timestamp: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
-
-function formatTimeRange(startTime: string, endTime: string): string {
-  const start = formatTime(startTime);
-  const end = formatTime(endTime);
-  return start === end ? start : `${start} - ${end}`;
 }
 
 function formatDuration(ms: number): string {
@@ -42,25 +55,127 @@ function formatDuration(ms: number): string {
   return `${durationMins}m`;
 }
 
-function getMaxGrade(climbs: GroupedClimb[]): string {
-  let maxGradeIdx = -1;
-  let maxGradeType: ClimbType = 'boulder';
+function formatSessionDate(timestamp: string): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86400000);
 
-  climbs.forEach((c) => {
-    const gradeArray = grades[c.type];
-    const idx = gradeArray.indexOf(c.grade);
-    if (idx > maxGradeIdx) {
-      maxGradeIdx = idx;
-      maxGradeType = c.type;
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today';
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
+  } else {
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+}
+
+function getGradeIndex(grade: string, type: ClimbType): number {
+  return grades[type].indexOf(grade);
+}
+
+function GradePill({ grade, count }: { grade: string; count: number }) {
+  return (
+    <View style={styles.gradePill}>
+      <Text style={styles.gradePillText}>
+        {grade}{count > 1 ? ` ×${count}` : ''}
+      </Text>
+    </View>
+  );
+}
+
+function TypeGradeSection({
+  type,
+  grades: gradeList,
+  expanded,
+  onToggleExpand,
+}: {
+  type: ClimbType;
+  grades: GradeCount[];
+  expanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  if (gradeList.length === 0) return null;
+
+  const maxVisible = 6;
+  const hasMore = gradeList.length > maxVisible;
+  const visibleGrades = expanded ? gradeList : gradeList.slice(0, maxVisible);
+  const hiddenCount = gradeList.length - maxVisible;
+
+  const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
+  return (
+    <View style={styles.typeSection}>
+      <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
+      <View style={styles.gradePillsContainer}>
+        {visibleGrades.map(({ grade, count }) => (
+          <GradePill key={grade} grade={grade} count={count} />
+        ))}
+        {hasMore && !expanded && (
+          <Pressable onPress={onToggleExpand} hitSlop={8}>
+            <View style={styles.morePill}>
+              <Text style={styles.morePillText}>+{hiddenCount} more</Text>
+            </View>
+          </Pressable>
+        )}
+        {hasMore && expanded && (
+          <Pressable onPress={onToggleExpand} hitSlop={8}>
+            <View style={styles.morePill}>
+              <Text style={styles.morePillText}>show less</Text>
+            </View>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function aggregateGradesByType(climbs: GroupedClimb[]): TypeGradeBreakdown {
+  const result: TypeGradeBreakdown = {
+    boulder: [],
+    sport: [],
+    trad: [],
+  };
+
+  // Only count sends
+  const sends = climbs.filter((c) => c.status === 'send');
+
+  // Count grades per type
+  const countMap: Record<ClimbType, Record<string, number>> = {
+    boulder: {},
+    sport: {},
+    trad: {},
+  };
+
+  sends.forEach((climb) => {
+    if (!countMap[climb.type][climb.grade]) {
+      countMap[climb.type][climb.grade] = 0;
     }
+    countMap[climb.type][climb.grade]++;
   });
 
-  return maxGradeIdx >= 0 ? grades[maxGradeType][maxGradeIdx] : '-';
+  // Convert to sorted arrays (highest grade first)
+  (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
+    result[type] = Object.entries(countMap[type])
+      .map(([grade, count]) => ({ grade, count }))
+      .sort((a, b) => getGradeIndex(b.grade, type) - getGradeIndex(a.grade, type));
+  });
+
+  return result;
 }
 
 export default function HistoryScreen() {
-  const { climbs, deleteClimb, isLoading } = useClimbs();
+  const { climbs, deleteClimb, isLoading, getSessionName, renameSession } = useClimbs();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [editingSession, setEditingSession] = useState<{ id: string; startTime: string } | null>(
+    null
+  );
+  const [editingName, setEditingName] = useState('');
 
   const toggleSession = (sessionId: string) => {
     setExpandedSessions((prev) => {
@@ -72,6 +187,40 @@ export default function HistoryScreen() {
       }
       return next;
     });
+  };
+
+  const toggleGradeExpand = (sessionId: string, type: ClimbType) => {
+    const key = `${sessionId}-${type}`;
+    setExpandedGrades((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleOpenRename = (sessionId: string, startTime: string) => {
+    setEditingSession({ id: sessionId, startTime });
+    setEditingName(getSessionName(sessionId, startTime));
+    setRenameModalVisible(true);
+  };
+
+  const handleSaveRename = () => {
+    if (editingSession && editingName.trim()) {
+      renameSession(editingSession.id, editingName.trim());
+    }
+    setRenameModalVisible(false);
+    setEditingSession(null);
+    setEditingName('');
+  };
+
+  const handleCancelRename = () => {
+    setRenameModalVisible(false);
+    setEditingSession(null);
+    setEditingName('');
   };
 
   if (isLoading) {
@@ -100,21 +249,40 @@ export default function HistoryScreen() {
     );
   }
 
-  // Group climbs by date
-  const groupedByDate: Record<string, GroupedClimb[]> = {};
+  // Group climbs by session (flat list, no date grouping)
+  const sessionClimbs: Record<string, GroupedClimb[]> = {};
   climbs.forEach((climb, index) => {
-    const date = new Date(climb.timestamp);
-    const dateKey = date.toDateString();
-    if (!groupedByDate[dateKey]) groupedByDate[dateKey] = [];
-    groupedByDate[dateKey].push({ ...climb, index });
+    if (!sessionClimbs[climb.sessionId]) sessionClimbs[climb.sessionId] = [];
+    sessionClimbs[climb.sessionId].push({ ...climb, index });
   });
 
-  const today = new Date().toDateString();
-  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  // Build session data
+  const sessions: SessionData[] = Object.keys(sessionClimbs)
+    .map((sessionId) => {
+      const sClimbs = sessionClimbs[sessionId].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      const times = sClimbs.map((c) => new Date(c.timestamp).getTime());
+      const startTime = new Date(Math.min(...times)).toISOString();
+      const endTime = new Date(Math.max(...times)).toISOString();
 
-  const sortedDates = Object.keys(groupedByDate).sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
-  );
+      return {
+        id: sessionId,
+        climbs: sClimbs,
+        sends: sClimbs.filter((c) => c.status !== 'attempt').length,
+        attempts: sClimbs.filter((c) => c.status === 'attempt').length,
+        startTime,
+        endTime,
+        durationMs: Math.max(...times) - Math.min(...times),
+        gradesByType: aggregateGradesByType(sClimbs),
+      };
+    })
+    .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+
+  const hasGrades = (session: SessionData) =>
+    session.gradesByType.boulder.length > 0 ||
+    session.gradesByType.sport.length > 0 ||
+    session.gradesByType.trad.length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -123,141 +291,89 @@ export default function HistoryScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {sortedDates.map((dateKey) => {
-          let label = dateKey;
-          if (dateKey === today) label = 'Today';
-          else if (dateKey === yesterday) label = 'Yesterday';
-
-          const dayClimbs = groupedByDate[dateKey];
-
-          // Separate climbs by session
-          const sessionClimbs: Record<string, GroupedClimb[]> = {};
-          const looseClimbs: GroupedClimb[] = [];
-
-          dayClimbs.forEach((climb) => {
-            if (climb.sessionId) {
-              if (!sessionClimbs[climb.sessionId]) sessionClimbs[climb.sessionId] = [];
-              sessionClimbs[climb.sessionId].push(climb);
-            } else {
-              looseClimbs.push(climb);
-            }
-          });
-
-          // Build session data
-          const sessions: SessionData[] = Object.keys(sessionClimbs)
-            .map((sessionId) => {
-              const sClimbs = sessionClimbs[sessionId].sort(
-                (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-              );
-              const times = sClimbs.map((c) => new Date(c.timestamp).getTime());
-              const startTime = new Date(Math.min(...times)).toISOString();
-              const endTime = new Date(Math.max(...times)).toISOString();
-
-              return {
-                id: sessionId,
-                climbs: sClimbs,
-                sends: sClimbs.filter((c) => c.status !== 'attempt').length,
-                attempts: sClimbs.filter((c) => c.status === 'attempt').length,
-                startTime,
-                endTime,
-                durationMs: Math.max(...times) - Math.min(...times),
-                maxGrade: getMaxGrade(sClimbs),
-              };
-            })
-            .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
-
-          // Sort loose climbs
-          const sortedLooseClimbs = looseClimbs.sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
+        {sessions.map((session) => {
+          const isExpanded = expandedSessions.has(session.id);
 
           return (
-            <View key={dateKey} style={styles.section}>
-              <Text style={styles.sectionHeader}>{label}</Text>
+            <Pressable
+              key={session.id}
+              style={styles.sessionCard}
+              onPress={() => toggleSession(session.id)}
+            >
+              {/* Header: Title and date/time */}
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitleSection}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {getSessionName(session.id, session.startTime)}
+                  </Text>
+                  <Pressable
+                    style={styles.menuButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenRename(session.id, session.startTime);
+                    }}
+                    hitSlop={12}
+                  >
+                    <Text style={styles.menuButtonText}>•••</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.cardSubtitle}>
+                  {formatSessionDate(session.startTime)} at {formatTime(session.startTime)} · {formatDuration(session.durationMs)}
+                </Text>
+              </View>
 
-              {/* Render session cards */}
-              {sessions.map((session) => {
-                const isExpanded = expandedSessions.has(session.id);
+              {/* Stats row */}
+              <Text style={styles.statsText}>
+                {session.sends} sends · {session.attempts} attempts
+              </Text>
 
-                return (
-                  <View key={session.id} style={styles.sessionCard}>
-                    <Pressable
-                      style={styles.sessionHeader}
-                      onPress={() => toggleSession(session.id)}
-                    >
-                                            <View style={styles.sessionTitle}>
-                        <Text style={styles.sessionTitleText}>Session</Text>
-                        <Text style={styles.sessionTimeRange}>
-                          {session.climbs.length} climbs · {formatTimeRange(session.startTime, session.endTime)} ·{' '}
-                          {formatDuration(session.durationMs)}
-                        </Text>
-                      </View>
-                      <View style={styles.sessionStats}>
-                        <View style={styles.sessionStat}>
-                          <Text style={styles.sessionStatValue}>{session.sends}</Text>
-                          <Text style={styles.sessionStatLabel}>Sends</Text>
-                        </View>
-                        <View style={styles.sessionStat}>
-                          <Text style={styles.sessionStatValue}>{session.attempts}</Text>
-                          <Text style={styles.sessionStatLabel}>Att</Text>
-                        </View>
-                        <View style={styles.sessionStat}>
-                          <Text style={styles.sessionStatValue}>{session.maxGrade}</Text>
-                          <Text style={styles.sessionStatLabel}>Max</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.sessionChevron}>
-                        {isExpanded ? '▼' : '▶'}
-                      </Text>
-                    </Pressable>
+              {/* Grade breakdown by type */}
+              {hasGrades(session) && (
+                <View style={styles.gradeBreakdownSection}>
+                  <TypeGradeSection
+                    type="boulder"
+                    grades={session.gradesByType.boulder}
+                    expanded={expandedGrades.has(`${session.id}-boulder`)}
+                    onToggleExpand={() => toggleGradeExpand(session.id, 'boulder')}
+                  />
+                  <TypeGradeSection
+                    type="sport"
+                    grades={session.gradesByType.sport}
+                    expanded={expandedGrades.has(`${session.id}-sport`)}
+                    onToggleExpand={() => toggleGradeExpand(session.id, 'sport')}
+                  />
+                  <TypeGradeSection
+                    type="trad"
+                    grades={session.gradesByType.trad}
+                    expanded={expandedGrades.has(`${session.id}-trad`)}
+                    onToggleExpand={() => toggleGradeExpand(session.id, 'trad')}
+                  />
+                </View>
+              )}
 
-                    {isExpanded && (
-                      <View style={styles.sessionClimbs}>
-                        {session.climbs.map((climb, idx) => (
-                          <View
-                            key={climb.id}
-                            style={[
-                              styles.historyItem,
-                              styles.sessionClimbItem,
-                              idx === session.climbs.length - 1 && styles.historyItemLast,
-                            ]}
-                          >
-                            <Text
-                              style={
-                                climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon
-                              }
-                            >
-                              {climb.status === 'attempt' ? '○' : '✓'}
-                            </Text>
-                            <Text style={styles.grade}>{climb.grade}</Text>
-                            {climb.type !== 'boulder' && (
-                              <Text style={styles.typeLabel}>({climb.type})</Text>
-                            )}
-                            <Text style={styles.time}>{formatTime(climb.timestamp)}</Text>
-                            <Pressable onPress={() => deleteClimb(climb.id)} hitSlop={8}>
-                              <Text style={styles.deleteBtn}>×</Text>
-                            </Pressable>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
+              {/* Expand indicator */}
+              <View style={styles.expandRow}>
+                <Text style={styles.expandText}>
+                  {isExpanded ? 'Hide details' : `View ${session.climbs.length} climbs`}
+                </Text>
+                <Text style={styles.expandChevron}>{isExpanded ? '▲' : '▼'}</Text>
+              </View>
 
-              {/* Render loose climbs */}
-              {sortedLooseClimbs.length > 0 && (
-                <View style={styles.historyGroup}>
-                  {sortedLooseClimbs.map((climb, idx) => (
+              {isExpanded && (
+                <View style={styles.sessionClimbs}>
+                  {session.climbs.map((climb, idx) => (
                     <View
                       key={climb.id}
                       style={[
                         styles.historyItem,
-                        idx === sortedLooseClimbs.length - 1 && styles.historyItemLast,
+                        styles.sessionClimbItem,
+                        idx === session.climbs.length - 1 && styles.historyItemLast,
                       ]}
                     >
                       <Text
-                        style={climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon}
+                        style={
+                          climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon
+                        }
                       >
                         {climb.status === 'attempt' ? '○' : '✓'}
                       </Text>
@@ -273,10 +389,40 @@ export default function HistoryScreen() {
                   ))}
                 </View>
               )}
-            </View>
+            </Pressable>
           );
         })}
       </ScrollView>
+
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelRename}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleCancelRename}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Rename Session</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editingName}
+              onChangeText={setEditingName}
+              placeholder="Session name"
+              placeholderTextColor={colors.textMuted}
+              maxLength={50}
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.modalCancelButton} onPress={handleCancelRename}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalSaveButton} onPress={handleSaveRename}>
+                <Text style={styles.modalSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -315,63 +461,62 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
   },
-  section: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-    paddingLeft: 16,
-  },
-  // Session Card styles
+  // Session Card styles - Strava-inspired larger cards
   sessionCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  sessionHeader: {
+  cardHeader: {
+    padding: 20,
+    paddingBottom: 8,
+  },
+  cardTitleSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    paddingHorizontal: 16,
+    marginBottom: 4,
   },
-  sessionTitle: {
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
     flex: 1,
   },
-  sessionTitleText: {
-    fontSize: 15,
+  menuButton: {
+    padding: 8,
+    marginLeft: 8,
+    marginRight: -4,
+  },
+  menuButtonText: {
+    fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
-  },
-  sessionTimeRange: {
-    fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 2,
+    letterSpacing: 2,
   },
-  sessionStats: {
+  cardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  expandRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginRight: 8,
-  },
-  sessionStat: {
     alignItems: 'center',
-    minWidth: 36,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 6,
   },
-  sessionStatValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  sessionStatLabel: {
-    fontSize: 9,
+  expandText: {
+    fontSize: 13,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
   },
-  sessionChevron: {
+  expandChevron: {
     fontSize: 10,
     color: colors.textSecondary,
   },
@@ -384,11 +529,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
   },
   // History item styles
-  historyGroup: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
   historyItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -431,9 +571,116 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   deleteBtn: {
-    color: colors.warning,
+    color: colors.danger,
     fontSize: 20,
     marginLeft: 12,
     padding: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  modalSaveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  modalSaveText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  // Grade breakdown styles
+  gradeBreakdownSection: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  typeSection: {
+    gap: 8,
+  },
+  typeSectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  gradePillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  gradePill: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  gradePillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  morePill: {
+    backgroundColor: colors.surfaceSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  morePillText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  statsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    paddingHorizontal: 20,
+    paddingBottom: 4,
   },
 });

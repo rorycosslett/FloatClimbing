@@ -5,6 +5,9 @@ import { useClimbs } from '../context/ClimbContext';
 import { grades } from '../data/grades';
 import { ClimbType } from '../types';
 import { colors } from '../theme/colors';
+import GradeProgressionChart from '../components/charts/GradeProgressionChart';
+import WeeklyActivityChart from '../components/charts/WeeklyActivityChart';
+import GradeDistributionChart from '../components/charts/GradeDistributionChart';
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
@@ -112,7 +115,7 @@ export default function ReportScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        {stats.recentTotal === 0 ? (
+        {climbs.length === 0 || stats.recentTotal === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
               No climbs logged yet.{'\n'}Log some climbs to see your report!
@@ -120,6 +123,10 @@ export default function ReportScreen() {
           </View>
         ) : (
           <>
+            <GradeProgressionChart climbs={climbs} type={selectedType} />
+            <WeeklyActivityChart climbs={climbs} type={selectedType} />
+            <GradeDistributionChart climbs={climbs} type={selectedType} />
+
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Summary ({stats.weeksToShow} Weeks)</Text>
               <View style={styles.statsGrid}>
@@ -137,7 +144,7 @@ export default function ReportScreen() {
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.recentTotal}</Text>
-                  <Text style={styles.statLabel}>Total Logs</Text>
+                  <Text style={styles.statLabel}>Total Climbs</Text>
                 </View>
               </View>
             </View>
