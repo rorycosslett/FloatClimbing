@@ -4,7 +4,7 @@ import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useClimbs } from '../context/ClimbContext';
 import { grades } from '../data/grades';
-import { ClimbType, SessionSummary, Climb } from '../types';
+import { ClimbType, SessionSummary } from '../types';
 import { colors } from '../theme/colors';
 import { SessionSummaryModal } from '../components/SessionSummaryModal';
 
@@ -35,7 +35,7 @@ export default function LogScreen() {
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [sessionListExpanded, setSessionListExpanded] = useState(false);
-  const { climbs, addClimb, deleteClimb, activeSession, startSession, endSession, getSessionClimbCount, renameSession } =
+  const { climbs, addClimb, deleteClimb, activeSession, startSession, endSession, pauseSession, resumeSession, getSessionClimbCount, renameSession } =
     useClimbs();
 
   useEffect(() => {
@@ -43,10 +43,21 @@ export default function LogScreen() {
     if (activeSession) {
       const updateElapsed = () => {
         const start = new Date(activeSession.startTime).getTime();
-        setElapsed(Date.now() - start);
+        const pausedDuration = activeSession.pausedDuration || 0;
+
+        // If paused, show elapsed time up to when it was paused
+        if (activeSession.pausedAt) {
+          const pausedAt = new Date(activeSession.pausedAt).getTime();
+          setElapsed(pausedAt - start - pausedDuration);
+        } else {
+          setElapsed(Date.now() - start - pausedDuration);
+        }
       };
       updateElapsed();
-      interval = setInterval(updateElapsed, 1000);
+      // Only run interval if not paused
+      if (!activeSession.pausedAt) {
+        interval = setInterval(updateElapsed, 1000);
+      }
     } else {
       setElapsed(0);
     }
@@ -65,27 +76,54 @@ export default function LogScreen() {
     });
   };
 
-  const handleSessionToggle = () => {
+  const handlePauseSession = () => {
     if (activeSession) {
-      const summary = endSession();
+      const summary = pauseSession();
       if (summary) {
         setSessionSummary(summary);
         setSummaryModalVisible(true);
       } else {
         Toast.show({
-          type: 'success',
-          text1: 'Session ended',
+          type: 'info',
+          text1: 'No climbs logged yet',
           visibilityTime: 2000,
         });
       }
-    } else {
-      startSession();
-      Toast.show({
-        type: 'success',
-        text1: 'Session started',
-        visibilityTime: 2000,
-      });
     }
+  };
+
+  const handleStartSession = () => {
+    startSession();
+    Toast.show({
+      type: 'success',
+      text1: 'Session started',
+      visibilityTime: 2000,
+    });
+  };
+
+  const handleResume = () => {
+    resumeSession();
+    setSummaryModalVisible(false);
+    setSessionSummary(null);
+    Toast.show({
+      type: 'success',
+      text1: 'Session resumed',
+      visibilityTime: 2000,
+    });
+  };
+
+  const handleFinish = (name?: string) => {
+    if (sessionSummary && name) {
+      renameSession(sessionSummary.sessionId, name);
+    }
+    endSession();
+    setSummaryModalVisible(false);
+    setSessionSummary(null);
+    Toast.show({
+      type: 'success',
+      text1: 'Session finished',
+      visibilityTime: 2000,
+    });
   };
 
   const handleDismissSummary = (name?: string) => {
@@ -221,9 +259,9 @@ export default function LogScreen() {
               </>
             )}
 
-            <Pressable style={styles.endSessionBtn} onPress={handleSessionToggle}>
-              <Text style={styles.endSessionIcon}>■</Text>
-              <Text style={styles.endSessionText}>End Session</Text>
+            <Pressable style={styles.endSessionBtn} onPress={handlePauseSession}>
+              <Text style={styles.endSessionIcon}>❚❚</Text>
+              <Text style={styles.endSessionText}>Pause Session</Text>
             </Pressable>
           </View>
         )}
@@ -232,7 +270,7 @@ export default function LogScreen() {
       {!activeSession && (
         <Pressable
           style={[styles.fab, styles.fabStart]}
-          onPress={handleSessionToggle}
+          onPress={handleStartSession}
         >
           <Text style={styles.fabIcon}>▶</Text>
           <Text style={styles.fabText}>Start Session</Text>
@@ -242,7 +280,10 @@ export default function LogScreen() {
       <SessionSummaryModal
         visible={summaryModalVisible}
         summary={sessionSummary}
+        isPaused={true}
         onDismiss={handleDismissSummary}
+        onResume={handleResume}
+        onFinish={handleFinish}
       />
     </SafeAreaView>
   );

@@ -15,6 +15,8 @@ export interface Session {
   startTime: string;
   endTime?: string;
   name?: string;
+  pausedDuration?: number; // Accumulated pause time in milliseconds
+  pausedAt?: string; // ISO timestamp when session was paused (null if running)
 }
 
 export interface SessionMetadata {
@@ -26,6 +28,17 @@ export interface Achievement {
   climbType: ClimbType;
   grade: string;
   description: string;
+}
+
+export interface GradeCount {
+  grade: string;
+  count: number;
+}
+
+export interface TypeGradeBreakdown {
+  boulder: GradeCount[];
+  sport: GradeCount[];
+  trad: GradeCount[];
 }
 
 export interface SessionSummary {
@@ -41,5 +54,6 @@ export interface SessionSummary {
     sport: string | null;
     trad: string | null;
   };
+  gradesByType: TypeGradeBreakdown;
   achievements: Achievement[];
 }

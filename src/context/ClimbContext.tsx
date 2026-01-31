@@ -8,6 +8,7 @@ import {
   SessionSummary,
   Achievement,
   SessionMetadata,
+  TypeGradeBreakdown,
 } from '../types';
 import {
   loadClimbs,
@@ -29,6 +30,8 @@ interface ClimbContextType {
   deleteClimb: (id: string) => void;
   startSession: () => void;
   endSession: (name?: string) => SessionSummary | null;
+  pauseSession: () => SessionSummary | null;
+  resumeSession: () => void;
   getSessionClimbCount: () => number;
   renameSession: (sessionId: string, name: string) => void;
   getSessionName: (sessionId: string, startTime: string) => string;
@@ -102,7 +105,9 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     }
 
     const endTime = new Date().toISOString();
-    const duration = new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
+    const totalElapsed = new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
+    const pausedDuration = activeSession.pausedDuration || 0;
+    const duration = totalElapsed - pausedDuration;
 
     const sends = sessionClimbs.filter((c) => c.status === 'send');
     const attempts = sessionClimbs.filter((c) => c.status === 'attempt');
@@ -125,6 +130,32 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // Aggregate grades by type for grade pills display
+    const gradesByType: TypeGradeBreakdown = {
+      boulder: [],
+      sport: [],
+      trad: [],
+    };
+
+    const countMap: Record<ClimbType, Record<string, number>> = {
+      boulder: {},
+      sport: {},
+      trad: {},
+    };
+
+    sends.forEach((climb) => {
+      if (!countMap[climb.type][climb.grade]) {
+        countMap[climb.type][climb.grade] = 0;
+      }
+      countMap[climb.type][climb.grade]++;
+    });
+
+    (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
+      gradesByType[type] = Object.entries(countMap[type])
+        .map(([grade, count]) => ({ grade, count }))
+        .sort((a, b) => grades[type].indexOf(b.grade) - grades[type].indexOf(a.grade));
+    });
+
     // Detect achievements (PRs)
     const achievements = detectAchievements(sessionClimbs, climbs, activeSession.id);
 
@@ -137,6 +168,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       sends: sends.length,
       attempts: attempts.length,
       maxGradeByType,
+      gradesByType,
       achievements,
     };
 
@@ -151,6 +183,111 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     saveSession(null);
 
     return summary;
+  };
+
+  const pauseSession = (): SessionSummary | null => {
+    if (!activeSession) return null;
+
+    const sessionClimbs = climbs.filter((c) => c.sessionId === activeSession.id);
+
+    if (sessionClimbs.length === 0) {
+      return null;
+    }
+
+    const endTime = new Date().toISOString();
+    const totalElapsed = new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
+    const pausedDuration = activeSession.pausedDuration || 0;
+    const duration = totalElapsed - pausedDuration;
+
+    const sends = sessionClimbs.filter((c) => c.status === 'send');
+    const attempts = sessionClimbs.filter((c) => c.status === 'attempt');
+
+    // Calculate max grade per type for sends in this session
+    const maxGradeByType: SessionSummary['maxGradeByType'] = {
+      boulder: null,
+      sport: null,
+      trad: null,
+    };
+
+    sends.forEach((climb) => {
+      const gradeArray = grades[climb.type];
+      const idx = gradeArray.indexOf(climb.grade);
+      const currentMax = maxGradeByType[climb.type];
+      const currentMaxIdx = currentMax ? gradeArray.indexOf(currentMax) : -1;
+
+      if (idx > currentMaxIdx) {
+        maxGradeByType[climb.type] = climb.grade;
+      }
+    });
+
+    // Aggregate grades by type for grade pills display
+    const gradesByType: TypeGradeBreakdown = {
+      boulder: [],
+      sport: [],
+      trad: [],
+    };
+
+    const countMap: Record<ClimbType, Record<string, number>> = {
+      boulder: {},
+      sport: {},
+      trad: {},
+    };
+
+    sends.forEach((climb) => {
+      if (!countMap[climb.type][climb.grade]) {
+        countMap[climb.type][climb.grade] = 0;
+      }
+      countMap[climb.type][climb.grade]++;
+    });
+
+    (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
+      gradesByType[type] = Object.entries(countMap[type])
+        .map(([grade, count]) => ({ grade, count }))
+        .sort((a, b) => grades[type].indexOf(b.grade) - grades[type].indexOf(a.grade));
+    });
+
+    // Detect achievements (PRs)
+    const achievements = detectAchievements(sessionClimbs, climbs, activeSession.id);
+
+    const summary: SessionSummary = {
+      sessionId: activeSession.id,
+      duration,
+      startTime: activeSession.startTime,
+      endTime,
+      totalClimbs: sessionClimbs.length,
+      sends: sends.length,
+      attempts: attempts.length,
+      maxGradeByType,
+      gradesByType,
+      achievements,
+    };
+
+    // Mark session as paused
+    const pausedSession: Session = {
+      ...activeSession,
+      pausedAt: new Date().toISOString(),
+    };
+    setActiveSession(pausedSession);
+    saveSession(pausedSession);
+
+    return summary;
+  };
+
+  const resumeSession = () => {
+    if (!activeSession || !activeSession.pausedAt) return;
+
+    const pausedAt = new Date(activeSession.pausedAt).getTime();
+    const now = Date.now();
+    const pauseDuration = now - pausedAt;
+    const totalPausedDuration = (activeSession.pausedDuration || 0) + pauseDuration;
+
+    const resumedSession: Session = {
+      ...activeSession,
+      pausedDuration: totalPausedDuration,
+      pausedAt: undefined,
+    };
+    setActiveSession(resumedSession);
+    saveSession(resumedSession);
   };
 
   const renameSession = (sessionId: string, name: string) => {
@@ -242,6 +379,8 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         deleteClimb,
         startSession,
         endSession,
+        pauseSession,
+        resumeSession,
         getSessionClimbCount,
         renameSession,
         getSessionName,

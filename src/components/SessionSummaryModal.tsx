@@ -7,14 +7,18 @@ import {
   StyleSheet,
   TextInput,
 } from 'react-native';
-import { SessionSummary, ClimbType } from '../types';
+import { Ionicons } from '@expo/vector-icons';
+import { SessionSummary, ClimbType, GradeCount } from '../types';
 import { colors } from '../theme/colors';
 import { generateSessionName } from '../utils/sessionUtils';
 
 interface SessionSummaryModalProps {
   visible: boolean;
   summary: SessionSummary | null;
+  isPaused?: boolean;
   onDismiss: (name?: string) => void;
+  onResume?: () => void;
+  onFinish?: (name?: string) => void;
 }
 
 function formatDuration(ms: number): string {
@@ -28,20 +32,60 @@ function formatDuration(ms: number): string {
   return `${minutes}m`;
 }
 
-function StatBox({ label, value }: { label: string; value: number }) {
+function formatTime(timestamp: string): string {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatSessionDate(timestamp: string): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(Date.now() - 86400000);
+
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today';
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
+  } else {
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+}
+
+function GradePill({ grade, count }: { grade: string; count: number }) {
   return (
-    <View style={styles.statBox}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.gradePill}>
+      <Text style={styles.gradePillText}>
+        {grade}{count > 1 ? ` ×${count}` : ''}
+      </Text>
     </View>
   );
 }
 
-function MaxGradeRow({ type, grade }: { type: string; grade: string }) {
+function TypeGradeSection({
+  type,
+  grades,
+}: {
+  type: ClimbType;
+  grades: GradeCount[];
+}) {
+  if (grades.length === 0) return null;
+
+  const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
   return (
-    <View style={styles.maxGradeRow}>
-      <Text style={styles.maxGradeType}>{type}</Text>
-      <Text style={styles.maxGradeValue}>{grade}</Text>
+    <View style={styles.typeSection}>
+      <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
+      <View style={styles.gradePillsContainer}>
+        {grades.map(({ grade, count }) => (
+          <GradePill key={grade} grade={grade} count={count} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -49,7 +93,10 @@ function MaxGradeRow({ type, grade }: { type: string; grade: string }) {
 export function SessionSummaryModal({
   visible,
   summary,
+  isPaused = false,
   onDismiss,
+  onResume,
+  onFinish,
 }: SessionSummaryModalProps) {
   const [sessionName, setSessionName] = useState('');
 
@@ -57,13 +104,25 @@ export function SessionSummaryModal({
 
   const defaultName = generateSessionName(summary.startTime);
 
-  const maxGradeEntries = (
-    Object.entries(summary.maxGradeByType) as [ClimbType, string | null][]
-  ).filter(([, grade]) => grade !== null);
+  const hasGrades =
+    summary.gradesByType.boulder.length > 0 ||
+    summary.gradesByType.sport.length > 0 ||
+    summary.gradesByType.trad.length > 0;
 
   const handleDismiss = () => {
     const nameToSave = sessionName.trim() || undefined;
     onDismiss(nameToSave);
+    setSessionName('');
+  };
+
+  const handleResume = () => {
+    setSessionName('');
+    onResume?.();
+  };
+
+  const handleFinish = () => {
+    const nameToSave = sessionName.trim() || undefined;
+    onFinish?.(nameToSave);
     setSessionName('');
   };
 
@@ -76,29 +135,48 @@ export function SessionSummaryModal({
     >
       <View style={styles.overlay}>
         <View style={styles.modalContent}>
-          <Text style={styles.title}>Session Complete</Text>
-
-          <Text style={styles.duration}>{formatDuration(summary.duration)}</Text>
-
-          <View style={styles.statsGrid}>
-            <StatBox label="Total" value={summary.totalClimbs} />
-            <StatBox label="Sends" value={summary.sends} />
-            <StatBox label="Attempts" value={summary.attempts} />
+          {/* Header: Session name input at top */}
+          <View style={styles.cardHeader}>
+            <View style={styles.nameInputContainer}>
+              <TextInput
+                style={styles.nameInput}
+                value={sessionName}
+                onChangeText={setSessionName}
+                placeholder={defaultName}
+                placeholderTextColor={colors.textMuted}
+                maxLength={50}
+              />
+              <Ionicons name="pencil" size={16} color={colors.textMuted} />
+            </View>
+            <Text style={styles.cardSubtitle}>
+              {formatSessionDate(summary.startTime)} at {formatTime(summary.startTime)} · {formatDuration(summary.duration)}
+            </Text>
           </View>
 
-          {maxGradeEntries.length > 0 && (
-            <View style={styles.maxGrades}>
-              <Text style={styles.sectionLabel}>Max Grade</Text>
-              {maxGradeEntries.map(([type, grade]) => (
-                <MaxGradeRow
-                  key={type}
-                  type={type.charAt(0).toUpperCase() + type.slice(1)}
-                  grade={grade!}
-                />
-              ))}
+          {/* Stats row */}
+          <Text style={styles.statsText}>
+            {summary.sends} sends · {summary.attempts} attempts
+          </Text>
+
+          {/* Grade breakdown by type */}
+          {hasGrades && (
+            <View style={styles.gradeBreakdownSection}>
+              <TypeGradeSection
+                type="boulder"
+                grades={summary.gradesByType.boulder}
+              />
+              <TypeGradeSection
+                type="sport"
+                grades={summary.gradesByType.sport}
+              />
+              <TypeGradeSection
+                type="trad"
+                grades={summary.gradesByType.trad}
+              />
             </View>
           )}
 
+          {/* Achievements */}
           {summary.achievements.length > 0 && (
             <View style={styles.achievements}>
               {summary.achievements.map((achievement, idx) => (
@@ -109,21 +187,20 @@ export function SessionSummaryModal({
             </View>
           )}
 
-          <View style={styles.nameInputContainer}>
-            <Text style={styles.nameLabel}>Session Name</Text>
-            <TextInput
-              style={styles.nameInput}
-              value={sessionName}
-              onChangeText={setSessionName}
-              placeholder={defaultName}
-              placeholderTextColor={colors.textMuted}
-              maxLength={50}
-            />
-          </View>
-
-          <Pressable style={styles.doneButton} onPress={handleDismiss}>
-            <Text style={styles.doneButtonText}>Done</Text>
-          </Pressable>
+          {isPaused ? (
+            <View style={styles.buttonRow}>
+              <Pressable style={styles.resumeButton} onPress={handleResume}>
+                <Text style={styles.resumeButtonText}>Resume</Text>
+              </Pressable>
+              <Pressable style={styles.finishButton} onPress={handleFinish}>
+                <Text style={styles.finishButtonText}>Finish</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable style={styles.doneButton} onPress={handleDismiss}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </Modal>
@@ -140,70 +217,84 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
     width: '100%',
     maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 8,
+  cardHeader: {
+    padding: 20,
+    paddingBottom: 8,
   },
-  duration: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  statsGrid: {
+  nameInputContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  statBox: {
     alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  maxGrades: {
     backgroundColor: colors.surfaceSecondary,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    gap: 8,
   },
-  maxGradeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  maxGradeType: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  maxGradeValue: {
-    fontSize: 14,
+  nameInput: {
+    flex: 1,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.text,
+    padding: 0,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  statsText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+  },
+  gradeBreakdownSection: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  typeSection: {
+    gap: 8,
+  },
+  typeSectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  gradePillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  gradePill: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  gradePillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   achievements: {
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     gap: 8,
   },
   achievementText: {
@@ -217,29 +308,48 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
-  nameInputContainer: {
-    marginBottom: 20,
-  },
-  nameLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  nameInput: {
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
   doneButton: {
     backgroundColor: colors.primary,
     paddingVertical: 14,
+    marginHorizontal: 20,
+    marginBottom: 20,
     borderRadius: 10,
     alignItems: 'center',
   },
   doneButtonText: {
     color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    gap: 12,
+  },
+  resumeButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  resumeButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  finishButton: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  finishButtonText: {
+    color: colors.text,
     fontSize: 17,
     fontWeight: '600',
   },
