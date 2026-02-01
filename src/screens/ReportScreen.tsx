@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useClimbs } from '../context/ClimbContext';
-import { grades } from '../data/grades';
-import { ClimbType } from '../types';
+import { useSettings } from '../context/SettingsContext';
+import { getDisplayGrade, getNormalizedGradeIndex } from '../utils/gradeUtils';
+import { ClimbType, Climb } from '../types';
 import { colors } from '../theme/colors';
 import GradeProgressionChart from '../components/charts/GradeProgressionChart';
 import WeeklyActivityChart from '../components/charts/WeeklyActivityChart';
@@ -12,11 +15,12 @@ import GradeDistributionChart from '../components/charts/GradeDistributionChart'
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
 export default function ReportScreen() {
+  const navigation = useNavigation();
+  const { settings } = useSettings();
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const { climbs, isLoading } = useClimbs();
 
   const stats = useMemo(() => {
-    const gradeArray = grades[selectedType];
     const typeClimbs = climbs.filter((c) => c.type === selectedType);
     const now = new Date();
     const weeksToShow = 12;
@@ -28,18 +32,26 @@ export default function ReportScreen() {
       return d >= new Date(now.getTime() - weeksToShow * oneWeekMs);
     });
 
-    // Calculate max grade index for recent period
+    // Calculate max grade index for recent period (using normalized index for comparison)
     let maxGradeIndex = -1;
+    let maxGradeClimb: Climb | null = null;
     recentClimbs.forEach((c) => {
-      const idx = gradeArray.indexOf(c.grade);
-      if (idx > maxGradeIndex) maxGradeIndex = idx;
+      const idx = getNormalizedGradeIndex(c.grade, c.type);
+      if (idx > maxGradeIndex) {
+        maxGradeIndex = idx;
+        maxGradeClimb = c;
+      }
     });
 
     // All-time stats
     let allTimeMaxIdx = -1;
+    let allTimeMaxClimb: Climb | null = null;
     typeClimbs.forEach((c) => {
-      const idx = gradeArray.indexOf(c.grade);
-      if (idx > allTimeMaxIdx) allTimeMaxIdx = idx;
+      const idx = getNormalizedGradeIndex(c.grade, c.type);
+      if (idx > allTimeMaxIdx) {
+        allTimeMaxIdx = idx;
+        allTimeMaxClimb = c;
+      }
     });
 
     const allTimeDates = typeClimbs
@@ -72,15 +84,15 @@ export default function ReportScreen() {
       recentTotal: recentClimbs.length,
       recentSends: recentClimbs.filter((c) => c.status === 'send').length,
       recentAttempts: recentClimbs.filter((c) => c.status === 'attempt').length,
-      recentMaxGrade: maxGradeIndex >= 0 ? gradeArray[maxGradeIndex] : '-',
+      recentMaxGrade: maxGradeClimb ? getDisplayGrade(maxGradeClimb, settings.grades) : '-',
       allTimeTotal: typeClimbs.length,
       allTimeSends: typeClimbs.filter((c) => c.status === 'send').length,
-      allTimeMaxGrade: allTimeMaxIdx >= 0 ? gradeArray[allTimeMaxIdx] : '-',
+      allTimeMaxGrade: allTimeMaxClimb ? getDisplayGrade(allTimeMaxClimb, settings.grades) : '-',
       daysSinceFirst,
       firstTick: firstTick ? formatDate(firstTick) : '-',
       weeksToShow,
     };
-  }, [climbs, selectedType]);
+  }, [climbs, selectedType, settings.grades]);
 
   if (isLoading) {
     return (
@@ -98,7 +110,15 @@ export default function ReportScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Insights</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Insights</Text>
+          <Pressable
+            onPress={() => navigation.navigate('Settings' as never)}
+            style={styles.settingsButton}
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </Pressable>
+        </View>
         <View style={styles.segmentControl}>
           {CLIMB_TYPES.map((type) => (
             <Pressable
@@ -189,12 +209,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   title: {
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 12,
     color: colors.text,
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: 0,
+    padding: 4,
   },
   segmentControl: {
     flexDirection: 'row',

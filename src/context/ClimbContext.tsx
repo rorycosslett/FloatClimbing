@@ -18,8 +18,8 @@ import {
   loadSessionMetadata,
   saveSessionMetadata,
 } from '../data/storage';
-import { grades } from '../data/grades';
 import { generateSessionName } from '../utils/sessionUtils';
+import { getNormalizedGradeIndex } from '../utils/gradeUtils';
 
 interface ClimbContextType {
   climbs: Climb[];
@@ -28,6 +28,7 @@ interface ClimbContextType {
   sessionMetadata: Record<string, SessionMetadata>;
   addClimb: (grade: string, type: ClimbType, status: ClimbStatus) => void;
   deleteClimb: (id: string) => void;
+  deleteSession: (sessionId: string) => void;
   startSession: () => void;
   endSession: (name?: string) => SessionSummary | null;
   pauseSession: () => SessionSummary | null;
@@ -84,6 +85,18 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     saveClimbs(updated);
   };
 
+  const deleteSession = (sessionId: string) => {
+    // Remove all climbs belonging to this session
+    const updatedClimbs = climbs.filter((c) => c.sessionId !== sessionId);
+    setClimbs(updatedClimbs);
+    saveClimbs(updatedClimbs);
+
+    // Remove session metadata
+    const { [sessionId]: _, ...remainingMetadata } = sessionMetadata;
+    setSessionMetadata(remainingMetadata);
+    saveSessionMetadata(remainingMetadata);
+  };
+
   const startSession = () => {
     const session: Session = {
       id: Crypto.randomUUID(),
@@ -120,10 +133,9 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     };
 
     sends.forEach((climb) => {
-      const gradeArray = grades[climb.type];
-      const idx = gradeArray.indexOf(climb.grade);
+      const idx = getNormalizedGradeIndex(climb.grade, climb.type);
       const currentMax = maxGradeByType[climb.type];
-      const currentMaxIdx = currentMax ? gradeArray.indexOf(currentMax) : -1;
+      const currentMaxIdx = currentMax ? getNormalizedGradeIndex(currentMax, climb.type) : -1;
 
       if (idx > currentMaxIdx) {
         maxGradeByType[climb.type] = climb.grade;
@@ -153,7 +165,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
       gradesByType[type] = Object.entries(countMap[type])
         .map(([grade, count]) => ({ grade, count }))
-        .sort((a, b) => grades[type].indexOf(b.grade) - grades[type].indexOf(a.grade));
+        .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
     });
 
     // Detect achievements (PRs)
@@ -210,10 +222,9 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     };
 
     sends.forEach((climb) => {
-      const gradeArray = grades[climb.type];
-      const idx = gradeArray.indexOf(climb.grade);
+      const idx = getNormalizedGradeIndex(climb.grade, climb.type);
       const currentMax = maxGradeByType[climb.type];
-      const currentMaxIdx = currentMax ? gradeArray.indexOf(currentMax) : -1;
+      const currentMaxIdx = currentMax ? getNormalizedGradeIndex(currentMax, climb.type) : -1;
 
       if (idx > currentMaxIdx) {
         maxGradeByType[climb.type] = climb.grade;
@@ -243,7 +254,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
       gradesByType[type] = Object.entries(countMap[type])
         .map(([grade, count]) => ({ grade, count }))
-        .sort((a, b) => grades[type].indexOf(b.grade) - grades[type].indexOf(a.grade));
+        .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
     });
 
     // Detect achievements (PRs)
@@ -322,7 +333,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     priorClimbs
       .filter((c) => c.status === 'send')
       .forEach((c) => {
-        const idx = grades[c.type].indexOf(c.grade);
+        const idx = getNormalizedGradeIndex(c.grade, c.type);
         if (idx > priorMaxByType[c.type]) {
           priorMaxByType[c.type] = idx;
         }
@@ -337,10 +348,10 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     };
 
     sessionSends.forEach((c) => {
-      const idx = grades[c.type].indexOf(c.grade);
+      const idx = getNormalizedGradeIndex(c.grade, c.type);
       if (idx > priorMaxByType[c.type]) {
         const currentPr = prsByType[c.type];
-        const currentPrIdx = currentPr ? grades[c.type].indexOf(currentPr) : -1;
+        const currentPrIdx = currentPr ? getNormalizedGradeIndex(currentPr, c.type) : -1;
         if (idx > currentPrIdx) {
           prsByType[c.type] = c.grade;
         }
@@ -377,6 +388,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         sessionMetadata,
         addClimb,
         deleteClimb,
+        deleteSession,
         startSession,
         endSession,
         pauseSession,

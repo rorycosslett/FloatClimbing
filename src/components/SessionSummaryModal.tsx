@@ -8,9 +8,11 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SessionSummary, ClimbType, GradeCount } from '../types';
+import { SessionSummary, ClimbType, GradeCount, Climb, GradeSettings } from '../types';
 import { colors } from '../theme/colors';
 import { generateSessionName } from '../utils/sessionUtils';
+import { useSettings } from '../context/SettingsContext';
+import { getDisplayGrade } from '../utils/gradeUtils';
 
 interface SessionSummaryModalProps {
   visible: boolean;
@@ -57,11 +59,12 @@ function formatSessionDate(timestamp: string): string {
   }
 }
 
-function GradePill({ grade, count }: { grade: string; count: number }) {
+function GradePill({ grade, count, type, gradeSettings }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings }) {
+  const displayGrade = getDisplayGrade({ grade, type } as Climb, gradeSettings);
   return (
     <View style={styles.gradePill}>
       <Text style={styles.gradePillText}>
-        {grade}{count > 1 ? ` ×${count}` : ''}
+        {displayGrade}{count > 1 ? ` ×${count}` : ''}
       </Text>
     </View>
   );
@@ -70,9 +73,11 @@ function GradePill({ grade, count }: { grade: string; count: number }) {
 function TypeGradeSection({
   type,
   grades,
+  gradeSettings,
 }: {
   type: ClimbType;
   grades: GradeCount[];
+  gradeSettings: GradeSettings;
 }) {
   if (grades.length === 0) return null;
 
@@ -83,7 +88,7 @@ function TypeGradeSection({
       <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
       <View style={styles.gradePillsContainer}>
         {grades.map(({ grade, count }) => (
-          <GradePill key={grade} grade={grade} count={count} />
+          <GradePill key={grade} grade={grade} count={count} type={type} gradeSettings={gradeSettings} />
         ))}
       </View>
     </View>
@@ -98,6 +103,7 @@ export function SessionSummaryModal({
   onResume,
   onFinish,
 }: SessionSummaryModalProps) {
+  const { settings } = useSettings();
   const [sessionName, setSessionName] = useState('');
 
   if (!summary) return null;
@@ -164,14 +170,17 @@ export function SessionSummaryModal({
               <TypeGradeSection
                 type="boulder"
                 grades={summary.gradesByType.boulder}
+                gradeSettings={settings.grades}
               />
               <TypeGradeSection
                 type="sport"
                 grades={summary.gradesByType.sport}
+                gradeSettings={settings.grades}
               />
               <TypeGradeSection
                 type="trad"
                 grades={summary.gradesByType.trad}
+                gradeSettings={settings.grades}
               />
             </View>
           )}

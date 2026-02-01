@@ -1,9 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Climb, Session, SessionMetadata } from '../types';
+import { Climb, Session, SessionMetadata, AppSettings } from '../types';
 
 const CLIMBS_KEY = 'climbs';
 const SESSION_KEY = 'activeSession';
 const SESSIONS_KEY = 'sessions';
+const SETTINGS_KEY = 'appSettings';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  grades: {
+    boulderSystem: 'vscale',
+    routeSystem: 'yds',
+  },
+};
 
 export async function loadClimbs(): Promise<Climb[]> {
   try {
@@ -70,5 +78,23 @@ export async function saveSessionMetadata(
     await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(metadata));
   } catch (error) {
     console.error('Error saving session metadata:', error);
+  }
+}
+
+export async function loadSettings(): Promise<AppSettings> {
+  try {
+    const data = await AsyncStorage.getItem(SETTINGS_KEY);
+    return data ? { ...DEFAULT_SETTINGS, ...JSON.parse(data) } : DEFAULT_SETTINGS;
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export async function saveSettings(settings: AppSettings): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.error('Error saving settings:', error);
   }
 }

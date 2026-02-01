@@ -9,10 +9,13 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useClimbs } from '../context/ClimbContext';
-import { Climb, ClimbType } from '../types';
+import { useSettings } from '../context/SettingsContext';
+import { Climb, ClimbType, GradeSettings } from '../types';
 import { colors } from '../theme/colors';
-import { grades } from '../data/grades';
+import { getDisplayGrade, getNormalizedGradeIndex } from '../utils/gradeUtils';
 
 interface GroupedClimb extends Climb {
   index: number;
@@ -73,15 +76,16 @@ function formatSessionDate(timestamp: string): string {
   }
 }
 
-function getGradeIndex(grade: string, type: ClimbType): number {
-  return grades[type].indexOf(grade);
+function getGradeIndexForSort(grade: string, type: ClimbType): number {
+  return getNormalizedGradeIndex(grade, type);
 }
 
-function GradePill({ grade, count }: { grade: string; count: number }) {
+function GradePill({ grade, count, type, gradeSettings }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings }) {
+  const displayGrade = getDisplayGrade({ grade, type } as Climb, gradeSettings);
   return (
     <View style={styles.gradePill}>
       <Text style={styles.gradePillText}>
-        {grade}{count > 1 ? ` ×${count}` : ''}
+        {displayGrade}{count > 1 ? ` ×${count}` : ''}
       </Text>
     </View>
   );
@@ -92,11 +96,13 @@ function TypeGradeSection({
   grades: gradeList,
   expanded,
   onToggleExpand,
+  gradeSettings,
 }: {
   type: ClimbType;
   grades: GradeCount[];
   expanded: boolean;
   onToggleExpand: () => void;
+  gradeSettings: GradeSettings;
 }) {
   if (gradeList.length === 0) return null;
 
@@ -112,7 +118,7 @@ function TypeGradeSection({
       <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
       <View style={styles.gradePillsContainer}>
         {visibleGrades.map(({ grade, count }) => (
-          <GradePill key={grade} grade={grade} count={count} />
+          <GradePill key={grade} grade={grade} count={count} type={type} gradeSettings={gradeSettings} />
         ))}
         {hasMore && !expanded && (
           <Pressable onPress={onToggleExpand} hitSlop={8}>
@@ -161,14 +167,16 @@ function aggregateGradesByType(climbs: GroupedClimb[]): TypeGradeBreakdown {
   (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
     result[type] = Object.entries(countMap[type])
       .map(([grade, count]) => ({ grade, count }))
-      .sort((a, b) => getGradeIndex(b.grade, type) - getGradeIndex(a.grade, type));
+      .sort((a, b) => getGradeIndexForSort(b.grade, type) - getGradeIndexForSort(a.grade, type));
   });
 
   return result;
 }
 
 export default function HistoryScreen() {
-  const { climbs, deleteClimb, isLoading, getSessionName, renameSession } = useClimbs();
+  const navigation = useNavigation();
+  const { settings } = useSettings();
+  const { climbs, deleteClimb, deleteSession, isLoading, getSessionName, renameSession } = useClimbs();
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
   const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -176,6 +184,9 @@ export default function HistoryScreen() {
     null
   );
   const [editingName, setEditingName] = useState('');
+  const [actionMenuVisible, setActionMenuVisible] = useState(false);
+  const [actionMenuSession, setActionMenuSession] = useState<{ id: string; startTime: string } | null>(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   const toggleSession = (sessionId: string) => {
     setExpandedSessions((prev) => {
@@ -202,12 +213,6 @@ export default function HistoryScreen() {
     });
   };
 
-  const handleOpenRename = (sessionId: string, startTime: string) => {
-    setEditingSession({ id: sessionId, startTime });
-    setEditingName(getSessionName(sessionId, startTime));
-    setRenameModalVisible(true);
-  };
-
   const handleSaveRename = () => {
     if (editingSession && editingName.trim()) {
       renameSession(editingSession.id, editingName.trim());
@@ -221,6 +226,43 @@ export default function HistoryScreen() {
     setRenameModalVisible(false);
     setEditingSession(null);
     setEditingName('');
+  };
+
+  const handleOpenActionMenu = (sessionId: string, startTime: string) => {
+    setActionMenuSession({ id: sessionId, startTime });
+    setActionMenuVisible(true);
+  };
+
+  const handleCloseActionMenu = () => {
+    setActionMenuVisible(false);
+    setActionMenuSession(null);
+  };
+
+  const handleEditFromMenu = () => {
+    if (actionMenuSession) {
+      setEditingSession(actionMenuSession);
+      setEditingName(getSessionName(actionMenuSession.id, actionMenuSession.startTime));
+      setRenameModalVisible(true);
+    }
+    handleCloseActionMenu();
+  };
+
+  const handleDeleteFromMenu = () => {
+    setActionMenuVisible(false);
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (actionMenuSession) {
+      deleteSession(actionMenuSession.id);
+    }
+    setDeleteConfirmVisible(false);
+    setActionMenuSession(null);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmVisible(false);
+    setActionMenuSession(null);
   };
 
   if (isLoading) {
@@ -287,7 +329,15 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>History</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>History</Text>
+          <Pressable
+            onPress={() => navigation.navigate('Settings' as never)}
+            style={styles.settingsButton}
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -310,7 +360,7 @@ export default function HistoryScreen() {
                     style={styles.menuButton}
                     onPress={(e) => {
                       e.stopPropagation();
-                      handleOpenRename(session.id, session.startTime);
+                      handleOpenActionMenu(session.id, session.startTime);
                     }}
                     hitSlop={12}
                   >
@@ -335,18 +385,21 @@ export default function HistoryScreen() {
                     grades={session.gradesByType.boulder}
                     expanded={expandedGrades.has(`${session.id}-boulder`)}
                     onToggleExpand={() => toggleGradeExpand(session.id, 'boulder')}
+                    gradeSettings={settings.grades}
                   />
                   <TypeGradeSection
                     type="sport"
                     grades={session.gradesByType.sport}
                     expanded={expandedGrades.has(`${session.id}-sport`)}
                     onToggleExpand={() => toggleGradeExpand(session.id, 'sport')}
+                    gradeSettings={settings.grades}
                   />
                   <TypeGradeSection
                     type="trad"
                     grades={session.gradesByType.trad}
                     expanded={expandedGrades.has(`${session.id}-trad`)}
                     onToggleExpand={() => toggleGradeExpand(session.id, 'trad')}
+                    gradeSettings={settings.grades}
                   />
                 </View>
               )}
@@ -377,7 +430,7 @@ export default function HistoryScreen() {
                       >
                         {climb.status === 'attempt' ? '○' : '✓'}
                       </Text>
-                      <Text style={styles.grade}>{climb.grade}</Text>
+                      <Text style={styles.grade}>{getDisplayGrade(climb, settings.grades)}</Text>
                       {climb.type !== 'boulder' && (
                         <Text style={styles.typeLabel}>({climb.type})</Text>
                       )}
@@ -423,6 +476,49 @@ export default function HistoryScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={actionMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseActionMenu}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleCloseActionMenu}>
+          <Pressable style={styles.actionMenuContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable style={styles.actionMenuItem} onPress={handleEditFromMenu}>
+              <Text style={styles.actionMenuText}>Edit Session</Text>
+            </Pressable>
+            <View style={styles.actionMenuDivider} />
+            <Pressable style={styles.actionMenuItem} onPress={handleDeleteFromMenu}>
+              <Text style={styles.actionMenuTextDanger}>Delete Session</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleCancelDelete}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Delete Session?</Text>
+            <Text style={styles.deleteWarningText}>
+              This will permanently delete this session and all of its climbs.
+            </Text>
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.modalCancelButton} onPress={handleCancelDelete}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalDeleteButton} onPress={handleConfirmDelete}>
+                <Text style={styles.modalDeleteText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -439,11 +535,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
     color: colors.text,
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: 0,
+    padding: 4,
   },
   emptyState: {
     flex: 1,
@@ -682,5 +788,48 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     paddingHorizontal: 20,
     paddingBottom: 4,
+  },
+  actionMenuContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 280,
+    overflow: 'hidden',
+  },
+  actionMenuItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  actionMenuText: {
+    fontSize: 17,
+    color: colors.text,
+  },
+  actionMenuTextDanger: {
+    fontSize: 17,
+    color: colors.danger,
+  },
+  actionMenuDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  deleteWarningText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  modalDeleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+  },
+  modalDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

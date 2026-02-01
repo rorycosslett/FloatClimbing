@@ -1,6 +1,18 @@
 export type ClimbType = 'boulder' | 'sport' | 'trad';
 export type ClimbStatus = 'send' | 'attempt';
 
+export type BoulderGradeSystem = 'vscale' | 'fontainebleau';
+export type RouteGradeSystem = 'yds' | 'french';
+
+export interface GradeSettings {
+  boulderSystem: BoulderGradeSystem;
+  routeSystem: RouteGradeSystem;
+}
+
+export interface AppSettings {
+  grades: GradeSettings;
+}
+
 export interface Climb {
   id: string;
   grade: string;
