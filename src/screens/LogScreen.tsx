@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useClimbs } from '../context/ClimbContext';
-import { grades } from '../data/grades';
+import { useSettings } from '../context/SettingsContext';
+import { getGradesForSettings } from '../data/grades';
+import { getDisplayGrade, getSecondaryGrade } from '../utils/gradeUtils';
 import { ClimbType, SessionSummary } from '../types';
 import { colors } from '../theme/colors';
 import { SessionSummaryModal } from '../components/SessionSummaryModal';
@@ -30,6 +34,8 @@ function formatTime(timestamp: string): string {
 }
 
 export default function LogScreen() {
+  const navigation = useNavigation();
+  const { settings } = useSettings();
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const [elapsed, setElapsed] = useState(0);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
@@ -37,6 +43,8 @@ export default function LogScreen() {
   const [sessionListExpanded, setSessionListExpanded] = useState(false);
   const { climbs, addClimb, deleteClimb, activeSession, startSession, endSession, pauseSession, resumeSession, getSessionClimbCount, renameSession } =
     useClimbs();
+
+  const currentGrades = getGradesForSettings(selectedType, settings.grades);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -148,7 +156,15 @@ export default function LogScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Log Climb</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Log Climb</Text>
+          <Pressable
+            onPress={() => navigation.navigate('Settings' as never)}
+            style={styles.settingsButton}
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.text} />
+          </Pressable>
+        </View>
         <View style={styles.segmentControl}>
           {CLIMB_TYPES.map((type) => (
             <Pressable
@@ -167,9 +183,14 @@ export default function LogScreen() {
 
       <View style={styles.splitContainer}>
         <ScrollView style={styles.gradeList}>
-          {grades[selectedType].map((grade) => (
+          {currentGrades.map((grade) => (
             <View key={grade} style={styles.gradeRow}>
-              <Text style={[styles.gradeLabel, !activeSession && styles.gradeLabelDisabled]}>{grade}</Text>
+              <View style={styles.gradeLabels}>
+                <Text style={[styles.gradeLabel, !activeSession && styles.gradeLabelDisabled]}>{grade}</Text>
+                <Text style={[styles.secondaryGradeLabel, !activeSession && styles.gradeLabelDisabled]}>
+                  {getSecondaryGrade(grade, selectedType, settings.grades)}
+                </Text>
+              </View>
               <View style={styles.buttons}>
                 <Pressable
                   style={({ pressed }) => [
@@ -244,7 +265,7 @@ export default function LogScreen() {
                         <Text style={climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon}>
                           {climb.status === 'attempt' ? '○' : '✓'}
                         </Text>
-                        <Text style={styles.climbGrade}>{climb.grade}</Text>
+                        <Text style={styles.climbGrade}>{getDisplayGrade(climb, settings.grades)}</Text>
                         {climb.type !== 'boulder' && (
                           <Text style={styles.climbType}>({climb.type})</Text>
                         )}
@@ -301,12 +322,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   title: {
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 12,
     color: colors.text,
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: 0,
+    padding: 4,
   },
   segmentControl: {
     flexDirection: 'row',
@@ -356,11 +387,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  gradeLabels: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
   gradeLabel: {
     fontSize: 17,
     fontWeight: '500',
-    minWidth: 70,
+    minWidth: 50,
     color: colors.text,
+  },
+  secondaryGradeLabel: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textMuted,
+    opacity: 0.7,
   },
   gradeLabelDisabled: {
     color: colors.textMuted,
