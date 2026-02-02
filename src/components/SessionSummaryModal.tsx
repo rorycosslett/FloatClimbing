@@ -59,10 +59,10 @@ function formatSessionDate(timestamp: string): string {
   }
 }
 
-function GradePill({ grade, count, type, gradeSettings }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings }) {
+function GradePill({ grade, count, type, gradeSettings, variant }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings; variant: 'send' | 'attempt' }) {
   const displayGrade = getDisplayGrade({ grade, type } as Climb, gradeSettings);
   return (
-    <View style={styles.gradePill}>
+    <View style={variant === 'send' ? styles.gradePill : styles.attemptPill}>
       <Text style={styles.gradePillText}>
         {displayGrade}{count > 1 ? ` ×${count}` : ''}
       </Text>
@@ -81,14 +81,27 @@ function TypeGradeSection({
 }) {
   if (grades.length === 0) return null;
 
+  // Build flat list of pills (sends first, then attempts for each grade)
+  const allPills: { grade: string; count: number; variant: 'send' | 'attempt' }[] = [];
+  grades.forEach(({ grade, sends, attempts }) => {
+    if (sends > 0) {
+      allPills.push({ grade, count: sends, variant: 'send' });
+    }
+    if (attempts > 0) {
+      allPills.push({ grade, count: attempts, variant: 'attempt' });
+    }
+  });
+
+  if (allPills.length === 0) return null;
+
   const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
 
   return (
     <View style={styles.typeSection}>
       <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
       <View style={styles.gradePillsContainer}>
-        {grades.map(({ grade, count }) => (
-          <GradePill key={grade} grade={grade} count={count} type={type} gradeSettings={gradeSettings} />
+        {allPills.map(({ grade, count, variant }, idx) => (
+          <GradePill key={`${grade}-${variant}-${idx}`} grade={grade} count={count} type={type} gradeSettings={gradeSettings} variant={variant} />
         ))}
       </View>
     </View>
@@ -160,9 +173,11 @@ export function SessionSummaryModal({
           </View>
 
           {/* Stats row */}
-          <Text style={styles.statsText}>
-            {summary.sends} sends · {summary.attempts} attempts
-          </Text>
+          <View style={styles.statsRow}>
+            <Text style={styles.sendsStat}>{summary.sends} sends</Text>
+            <Text style={styles.statsSeparator}> · </Text>
+            <Text style={styles.attemptsStat}>{summary.attempts} attempts</Text>
+          </View>
 
           {/* Grade breakdown by type */}
           {hasGrades && (
@@ -263,11 +278,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  statsText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+  statsRow: {
+    flexDirection: 'row',
     paddingHorizontal: 20,
     paddingBottom: 4,
+  },
+  sendsStat: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  statsSeparator: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  attemptsStat: {
+    fontSize: 14,
+    color: colors.warning,
+    fontWeight: '600',
   },
   gradeBreakdownSection: {
     paddingHorizontal: 20,
@@ -292,6 +320,12 @@ const styles = StyleSheet.create({
   },
   gradePill: {
     backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  attemptPill: {
+    backgroundColor: colors.warning,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,

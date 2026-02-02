@@ -6,10 +6,16 @@ import {
   Pressable,
   StyleSheet,
   Modal,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  Main: undefined;
+  Settings: undefined;
+  EditSession: { sessionId: string; startTime: string };
+};
 import { Ionicons } from '@expo/vector-icons';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
@@ -23,7 +29,8 @@ interface GroupedClimb extends Climb {
 
 interface GradeCount {
   grade: string;
-  count: number;
+  sends: number;
+  attempts: number;
 }
 
 interface TypeGradeBreakdown {
@@ -80,10 +87,10 @@ function getGradeIndexForSort(grade: string, type: ClimbType): number {
   return getNormalizedGradeIndex(grade, type);
 }
 
-function GradePill({ grade, count, type, gradeSettings }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings }) {
+function GradePill({ grade, count, type, gradeSettings, variant }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings; variant: 'send' | 'attempt' }) {
   const displayGrade = getDisplayGrade({ grade, type } as Climb, gradeSettings);
   return (
-    <View style={styles.gradePill}>
+    <View style={variant === 'send' ? styles.gradePill : styles.attemptPill}>
       <Text style={styles.gradePillText}>
         {displayGrade}{count > 1 ? ` ×${count}` : ''}
       </Text>
@@ -106,10 +113,21 @@ function TypeGradeSection({
 }) {
   if (gradeList.length === 0) return null;
 
+  // Build flat list of pills (sends first, then attempts for each grade)
+  const allPills: { grade: string; count: number; variant: 'send' | 'attempt' }[] = [];
+  gradeList.forEach(({ grade, sends, attempts }) => {
+    if (sends > 0) {
+      allPills.push({ grade, count: sends, variant: 'send' });
+    }
+    if (attempts > 0) {
+      allPills.push({ grade, count: attempts, variant: 'attempt' });
+    }
+  });
+
   const maxVisible = 6;
-  const hasMore = gradeList.length > maxVisible;
-  const visibleGrades = expanded ? gradeList : gradeList.slice(0, maxVisible);
-  const hiddenCount = gradeList.length - maxVisible;
+  const hasMore = allPills.length > maxVisible;
+  const visiblePills = expanded ? allPills : allPills.slice(0, maxVisible);
+  const hiddenCount = allPills.length - maxVisible;
 
   const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
 
@@ -117,8 +135,8 @@ function TypeGradeSection({
     <View style={styles.typeSection}>
       <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
       <View style={styles.gradePillsContainer}>
-        {visibleGrades.map(({ grade, count }) => (
-          <GradePill key={grade} grade={grade} count={count} type={type} gradeSettings={gradeSettings} />
+        {visiblePills.map(({ grade, count, variant }, idx) => (
+          <GradePill key={`${grade}-${variant}-${idx}`} grade={grade} count={count} type={type} gradeSettings={gradeSettings} variant={variant} />
         ))}
         {hasMore && !expanded && (
           <Pressable onPress={onToggleExpand} hitSlop={8}>
@@ -146,27 +164,28 @@ function aggregateGradesByType(climbs: GroupedClimb[]): TypeGradeBreakdown {
     trad: [],
   };
 
-  // Only count sends
-  const sends = climbs.filter((c) => c.status === 'send');
-
-  // Count grades per type
-  const countMap: Record<ClimbType, Record<string, number>> = {
+  // Count grades per type, tracking sends and attempts separately
+  const countMap: Record<ClimbType, Record<string, { sends: number; attempts: number }>> = {
     boulder: {},
     sport: {},
     trad: {},
   };
 
-  sends.forEach((climb) => {
+  climbs.forEach((climb) => {
     if (!countMap[climb.type][climb.grade]) {
-      countMap[climb.type][climb.grade] = 0;
+      countMap[climb.type][climb.grade] = { sends: 0, attempts: 0 };
     }
-    countMap[climb.type][climb.grade]++;
+    if (climb.status === 'attempt') {
+      countMap[climb.type][climb.grade].attempts++;
+    } else {
+      countMap[climb.type][climb.grade].sends++;
+    }
   });
 
   // Convert to sorted arrays (highest grade first)
   (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
     result[type] = Object.entries(countMap[type])
-      .map(([grade, count]) => ({ grade, count }))
+      .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
       .sort((a, b) => getGradeIndexForSort(b.grade, type) - getGradeIndexForSort(a.grade, type));
   });
 
@@ -174,31 +193,13 @@ function aggregateGradesByType(climbs: GroupedClimb[]): TypeGradeBreakdown {
 }
 
 export default function HistoryScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings } = useSettings();
-  const { climbs, deleteClimb, deleteSession, isLoading, getSessionName, renameSession } = useClimbs();
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+  const { climbs, deleteSession, isLoading, getSessionName } = useClimbs();
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
-  const [renameModalVisible, setRenameModalVisible] = useState(false);
-  const [editingSession, setEditingSession] = useState<{ id: string; startTime: string } | null>(
-    null
-  );
-  const [editingName, setEditingName] = useState('');
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
   const [actionMenuSession, setActionMenuSession] = useState<{ id: string; startTime: string } | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-
-  const toggleSession = (sessionId: string) => {
-    setExpandedSessions((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) {
-        next.delete(sessionId);
-      } else {
-        next.add(sessionId);
-      }
-      return next;
-    });
-  };
 
   const toggleGradeExpand = (sessionId: string, type: ClimbType) => {
     const key = `${sessionId}-${type}`;
@@ -213,21 +214,6 @@ export default function HistoryScreen() {
     });
   };
 
-  const handleSaveRename = () => {
-    if (editingSession && editingName.trim()) {
-      renameSession(editingSession.id, editingName.trim());
-    }
-    setRenameModalVisible(false);
-    setEditingSession(null);
-    setEditingName('');
-  };
-
-  const handleCancelRename = () => {
-    setRenameModalVisible(false);
-    setEditingSession(null);
-    setEditingName('');
-  };
-
   const handleOpenActionMenu = (sessionId: string, startTime: string) => {
     setActionMenuSession({ id: sessionId, startTime });
     setActionMenuVisible(true);
@@ -240,9 +226,10 @@ export default function HistoryScreen() {
 
   const handleEditFromMenu = () => {
     if (actionMenuSession) {
-      setEditingSession(actionMenuSession);
-      setEditingName(getSessionName(actionMenuSession.id, actionMenuSession.startTime));
-      setRenameModalVisible(true);
+      navigation.navigate('EditSession', {
+        sessionId: actionMenuSession.id,
+        startTime: actionMenuSession.startTime,
+      });
     }
     handleCloseActionMenu();
   };
@@ -332,7 +319,7 @@ export default function HistoryScreen() {
         <View style={styles.headerRow}>
           <Text style={styles.title}>History</Text>
           <Pressable
-            onPress={() => navigation.navigate('Settings' as never)}
+            onPress={() => navigation.navigate('Settings')}
             style={styles.settingsButton}
           >
             <Ionicons name="settings-outline" size={24} color={colors.text} />
@@ -341,14 +328,14 @@ export default function HistoryScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {sessions.map((session) => {
-          const isExpanded = expandedSessions.has(session.id);
-
-          return (
+        {sessions.map((session) => (
             <Pressable
               key={session.id}
               style={styles.sessionCard}
-              onPress={() => toggleSession(session.id)}
+              onPress={() => navigation.navigate('EditSession', {
+                sessionId: session.id,
+                startTime: session.startTime,
+              })}
             >
               {/* Header: Title and date/time */}
               <View style={styles.cardHeader}>
@@ -373,9 +360,11 @@ export default function HistoryScreen() {
               </View>
 
               {/* Stats row */}
-              <Text style={styles.statsText}>
-                {session.sends} sends · {session.attempts} attempts
-              </Text>
+              <View style={styles.statsRow}>
+                <Text style={styles.sendsStat}>{session.sends} {session.sends === 1 ? 'send' : 'sends'}</Text>
+                <Text style={styles.statsSeparator}> · </Text>
+                <Text style={styles.attemptsStat}>{session.attempts} {session.attempts === 1 ? 'attempt' : 'attempts'}</Text>
+              </View>
 
               {/* Grade breakdown by type */}
               {hasGrades(session) && (
@@ -403,79 +392,9 @@ export default function HistoryScreen() {
                   />
                 </View>
               )}
-
-              {/* Expand indicator */}
-              <View style={styles.expandRow}>
-                <Text style={styles.expandText}>
-                  {isExpanded ? 'Hide details' : `View ${session.climbs.length} climbs`}
-                </Text>
-                <Text style={styles.expandChevron}>{isExpanded ? '▲' : '▼'}</Text>
-              </View>
-
-              {isExpanded && (
-                <View style={styles.sessionClimbs}>
-                  {session.climbs.map((climb, idx) => (
-                    <View
-                      key={climb.id}
-                      style={[
-                        styles.historyItem,
-                        styles.sessionClimbItem,
-                        idx === session.climbs.length - 1 && styles.historyItemLast,
-                      ]}
-                    >
-                      <Text
-                        style={
-                          climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon
-                        }
-                      >
-                        {climb.status === 'attempt' ? '○' : '✓'}
-                      </Text>
-                      <Text style={styles.grade}>{getDisplayGrade(climb, settings.grades)}</Text>
-                      {climb.type !== 'boulder' && (
-                        <Text style={styles.typeLabel}>({climb.type})</Text>
-                      )}
-                      <Text style={styles.time}>{formatTime(climb.timestamp)}</Text>
-                      <Pressable onPress={() => deleteClimb(climb.id)} hitSlop={8}>
-                        <Text style={styles.deleteBtn}>×</Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              )}
             </Pressable>
-          );
-        })}
+          ))}
       </ScrollView>
-
-      <Modal
-        visible={renameModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCancelRename}
-      >
-        <Pressable style={styles.modalOverlay} onPress={handleCancelRename}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Rename Session</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={editingName}
-              onChangeText={setEditingName}
-              placeholder="Session name"
-              placeholderTextColor={colors.textMuted}
-              maxLength={50}
-              autoFocus
-            />
-            <View style={styles.modalButtons}>
-              <Pressable style={styles.modalCancelButton} onPress={handleCancelRename}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={styles.modalSaveButton} onPress={handleSaveRename}>
-                <Text style={styles.modalSaveText}>Save</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       <Modal
         visible={actionMenuVisible}
@@ -767,6 +686,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
   },
+  attemptPill: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
   gradePillText: {
     fontSize: 14,
     fontWeight: '600',
@@ -783,11 +708,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textSecondary,
   },
-  statsText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+  statsRow: {
+    flexDirection: 'row',
     paddingHorizontal: 20,
     paddingBottom: 4,
+  },
+  sendsStat: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  statsSeparator: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  attemptsStat: {
+    fontSize: 14,
+    color: colors.warning,
+    fontWeight: '600',
   },
   actionMenuContent: {
     backgroundColor: colors.surface,

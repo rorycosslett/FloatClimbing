@@ -44,7 +44,8 @@ export interface Achievement {
 
 export interface GradeCount {
   grade: string;
-  count: number;
+  sends: number;
+  attempts: number;
 }
 
 export interface TypeGradeBreakdown {

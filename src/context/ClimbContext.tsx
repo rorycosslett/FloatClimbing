@@ -27,6 +27,7 @@ interface ClimbContextType {
   activeSession: Session | null;
   sessionMetadata: Record<string, SessionMetadata>;
   addClimb: (grade: string, type: ClimbType, status: ClimbStatus) => void;
+  addClimbToSession: (sessionId: string, grade: string, type: ClimbType, status: ClimbStatus) => void;
   deleteClimb: (id: string) => void;
   deleteSession: (sessionId: string) => void;
   startSession: () => void;
@@ -73,6 +74,20 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       status,
       timestamp: new Date().toISOString(),
       sessionId: activeSession.id,
+    };
+    const updated = [...climbs, newClimb];
+    setClimbs(updated);
+    saveClimbs(updated);
+  };
+
+  const addClimbToSession = (sessionId: string, grade: string, type: ClimbType, status: ClimbStatus) => {
+    const newClimb: Climb = {
+      id: Crypto.randomUUID(),
+      grade,
+      type,
+      status,
+      timestamp: new Date().toISOString(),
+      sessionId,
     };
     const updated = [...climbs, newClimb];
     setClimbs(updated);
@@ -149,22 +164,26 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       trad: [],
     };
 
-    const countMap: Record<ClimbType, Record<string, number>> = {
+    const countMap: Record<ClimbType, Record<string, { sends: number; attempts: number }>> = {
       boulder: {},
       sport: {},
       trad: {},
     };
 
-    sends.forEach((climb) => {
+    sessionClimbs.forEach((climb) => {
       if (!countMap[climb.type][climb.grade]) {
-        countMap[climb.type][climb.grade] = 0;
+        countMap[climb.type][climb.grade] = { sends: 0, attempts: 0 };
       }
-      countMap[climb.type][climb.grade]++;
+      if (climb.status === 'attempt') {
+        countMap[climb.type][climb.grade].attempts++;
+      } else {
+        countMap[climb.type][climb.grade].sends++;
+      }
     });
 
     (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
       gradesByType[type] = Object.entries(countMap[type])
-        .map(([grade, count]) => ({ grade, count }))
+        .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
         .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
     });
 
@@ -238,22 +257,26 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       trad: [],
     };
 
-    const countMap: Record<ClimbType, Record<string, number>> = {
+    const countMap: Record<ClimbType, Record<string, { sends: number; attempts: number }>> = {
       boulder: {},
       sport: {},
       trad: {},
     };
 
-    sends.forEach((climb) => {
+    sessionClimbs.forEach((climb) => {
       if (!countMap[climb.type][climb.grade]) {
-        countMap[climb.type][climb.grade] = 0;
+        countMap[climb.type][climb.grade] = { sends: 0, attempts: 0 };
       }
-      countMap[climb.type][climb.grade]++;
+      if (climb.status === 'attempt') {
+        countMap[climb.type][climb.grade].attempts++;
+      } else {
+        countMap[climb.type][climb.grade].sends++;
+      }
     });
 
     (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
       gradesByType[type] = Object.entries(countMap[type])
-        .map(([grade, count]) => ({ grade, count }))
+        .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
         .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
     });
 
@@ -387,6 +410,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         activeSession,
         sessionMetadata,
         addClimb,
+        addClimbToSession,
         deleteClimb,
         deleteSession,
         startSession,

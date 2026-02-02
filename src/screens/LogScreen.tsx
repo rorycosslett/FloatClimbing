@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   gradeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -393,13 +393,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   gradeLabel: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '500',
     minWidth: 50,
     color: colors.text,
   },
   secondaryGradeLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '400',
     color: colors.textMuted,
     opacity: 0.7,
@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tickBtn: {
-    width: 44,
-    height: 36,
+    width: 52,
+    height: 44,
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 8,
@@ -426,15 +426,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   tickBtnText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
   },
   sendText: {
     color: colors.primary,
   },
   attemptBtn: {
-    width: 44,
-    height: 36,
+    width: 52,
+    height: 44,
     borderWidth: 1,
     borderColor: colors.warning,
     borderRadius: 8,
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warning,
   },
   attemptBtnText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: colors.warning,
   },

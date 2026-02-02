@@ -14,6 +14,7 @@ import LogScreen from './src/screens/LogScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ReportScreen from './src/screens/ReportScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import EditSessionScreen from './src/screens/EditSessionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -86,6 +87,7 @@ export default function App() {
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Main" component={MainTabs} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
+              <Stack.Screen name="EditSession" component={EditSessionScreen} />
             </Stack.Navigator>
             <StatusBar style="light" />
           </NavigationContainer>
