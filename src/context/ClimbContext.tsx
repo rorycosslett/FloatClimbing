@@ -107,7 +107,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     saveClimbs(updatedClimbs);
 
     // Remove session metadata
-    const { [sessionId]: _, ...remainingMetadata } = sessionMetadata;
+    const { [sessionId]: _removed, ...remainingMetadata } = sessionMetadata;
     setSessionMetadata(remainingMetadata);
     saveSessionMetadata(remainingMetadata);
   };
