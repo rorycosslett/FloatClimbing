@@ -16,35 +16,33 @@ const chartWidth = screenWidth - 80;
 export default function GradeProgressionChart({ climbs, type }: Props) {
   const data = useMemo(() => getGradeProgressionData(climbs, type, 12), [climbs, type]);
 
-  if (data.length < 2) {
+  if (data.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Grade Progression</Text>
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>Need at least 2 weeks of sends to show progression</Text>
+          <Text style={styles.emptyText}>Log a send to see your grade progression</Text>
         </View>
       </View>
     );
   }
 
+  const minGrade = Math.max(0, Math.min(...data.map((d) => d.gradeIndex)) - 1);
+  const maxGrade = Math.max(...data.map((d) => d.gradeIndex)) + 1;
+
   const chartData = data.map((d) => ({
-    value: d.gradeIndex,
+    value: d.gradeIndex - minGrade,
     label: d.label,
     dataPointText: d.grade,
   }));
 
-  const minGrade = Math.max(0, Math.min(...data.map((d) => d.gradeIndex)) - 1);
-  const maxGrade = Math.max(...data.map((d) => d.gradeIndex)) + 1;
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Grade Progression</Text>
       <View style={styles.chartWrapper}>
         <LineChart
           data={chartData}
           width={chartWidth}
           height={150}
-          spacing={chartWidth / (chartData.length + 1)}
+          spacing={chartData.length > 1 ? (chartWidth - 40) / (chartData.length - 1) : 0}
           color={colors.primary}
           thickness={2}
           dataPointsColor={colors.primary}
@@ -55,7 +53,7 @@ export default function GradeProgressionChart({ climbs, type }: Props) {
           yAxisTextStyle={styles.axisText}
           xAxisLabelTextStyle={styles.axisLabel}
           hideRules
-          yAxisOffset={minGrade}
+          mostNegativeValue={0}
           maxValue={maxGrade - minGrade}
           noOfSections={Math.min(4, maxGrade - minGrade)}
           formatYLabel={(val) => getGradeLabel(type, Math.round(Number(val) + minGrade))}
@@ -78,12 +76,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
   },
   subtitle: {
     fontSize: 11,
@@ -112,5 +104,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 9,
     width: 40,
+    marginLeft: -20,
   },
 });

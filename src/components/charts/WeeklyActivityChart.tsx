@@ -14,7 +14,14 @@ const screenWidth = Dimensions.get('window').width;
 const chartWidth = screenWidth - 80;
 
 export default function WeeklyActivityChart({ climbs, type }: Props) {
-  const data = useMemo(() => getWeeklyActivityData(climbs, type, 12), [climbs, type]);
+  const rawData = useMemo(() => getWeeklyActivityData(climbs, type, 12), [climbs, type]);
+
+  // Trim leading weeks with no data
+  const data = useMemo(() => {
+    const firstDataIndex = rawData.findIndex((d) => d.sends > 0 || d.attempts > 0);
+    if (firstDataIndex === -1) return rawData;
+    return rawData.slice(firstDataIndex);
+  }, [rawData]);
 
   const hasData = data.some((d) => d.sends > 0 || d.attempts > 0);
 
@@ -32,8 +39,8 @@ export default function WeeklyActivityChart({ climbs, type }: Props) {
   // Create stacked bar data
   const stackData = data.map((d) => ({
     stacks: [
-      { value: d.sends, color: colors.success },
-      { value: d.attempts, color: colors.warning },
+      { value: d.attempts, color: colors.secondary },
+      { value: d.sends, color: colors.primary },
     ],
     label: d.label,
   }));
@@ -45,11 +52,11 @@ export default function WeeklyActivityChart({ climbs, type }: Props) {
       <Text style={styles.title}>Weekly Activity</Text>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
           <Text style={styles.legendText}>Sends</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.secondary }]} />
           <Text style={styles.legendText}>Attempts</Text>
         </View>
       </View>
@@ -73,7 +80,9 @@ export default function WeeklyActivityChart({ climbs, type }: Props) {
           disablePress
         />
       </View>
-      <Text style={styles.subtitle}>Last 12 weeks</Text>
+      <Text style={styles.subtitle}>
+        {data.length === 1 ? 'This week' : `Last ${data.length} weeks`}
+      </Text>
     </View>
   );
 }

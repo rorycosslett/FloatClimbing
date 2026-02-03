@@ -116,17 +116,41 @@ export function getGradeProgressionData(
 
 export interface GradeDistributionDataPoint {
   label: string;
-  value: number;
+  sends: number;
+  attempts: number;
+  total: number;
   color: string;
 }
 
+// Color scale from easy (green) to hard (red), avoiding primary blue and secondary purple
+const GRADE_COLOR_SCALE = [
+  '#2ecc71', // emerald green (easiest)
+  '#27ae60', // nephritis green
+  '#1abc9c', // turquoise
+  '#16a085', // green sea
+  '#f1c40f', // sun yellow
+  '#f39c12', // orange
+  '#e67e22', // carrot
+  '#d35400', // pumpkin
+  '#e74c3c', // alizarin red
+  '#c0392b', // pomegranate
+  '#ff6b6b', // coral red
+  '#ee5a5a', // light red
+  '#d63031', // red
+  '#b71540', // dark red
+  '#6d214f', // imperial purple (hardest grades)
+  '#182c61', // dark blue
+  '#0a3d62', // prussian blue
+  '#079992', // teal
+];
+
 /**
- * Get grade distribution data for pie chart
+ * Get grade distribution data with sends and attempts counted separately
  */
 export function getGradeDistributionData(
   climbs: Climb[],
   type: ClimbType,
-  colors: string[]
+  _colors: string[] // kept for API compatibility
 ): GradeDistributionDataPoint[] {
   const typeClimbs = climbs.filter((c) => c.type === type);
   const gradeArray = grades[type];
@@ -135,37 +159,37 @@ export function getGradeDistributionData(
     return [];
   }
 
-  // Define grade ranges based on type
-  const ranges =
-    type === 'boulder'
-      ? [
-          { label: 'V0-V2', min: 0, max: 2 },
-          { label: 'V3-V5', min: 3, max: 5 },
-          { label: 'V6-V8', min: 6, max: 8 },
-          { label: 'V9+', min: 9, max: Infinity },
-        ]
-      : [
-          { label: '5.6-5.9', min: 0, max: 3 },
-          { label: '5.10', min: 4, max: 7 },
-          { label: '5.11', min: 8, max: 11 },
-          { label: '5.12+', min: 12, max: Infinity },
-        ];
-
-  const distribution = ranges.map((range, index) => {
-    const count = typeClimbs.filter((c) => {
-      const gradeIdx = gradeArray.indexOf(c.grade);
-      return gradeIdx >= range.min && gradeIdx <= range.max;
-    }).length;
-
-    return {
-      label: range.label,
-      value: count,
-      color: colors[index % colors.length],
-    };
+  // Count sends and attempts per grade
+  const gradeSends = new Map<string, number>();
+  const gradeAttempts = new Map<string, number>();
+  typeClimbs.forEach((c) => {
+    if (c.status === 'send') {
+      gradeSends.set(c.grade, (gradeSends.get(c.grade) || 0) + 1);
+    } else {
+      gradeAttempts.set(c.grade, (gradeAttempts.get(c.grade) || 0) + 1);
+    }
   });
 
-  // Filter out zero values
-  return distribution.filter((d) => d.value > 0);
+  // Create distribution for each grade that has climbs
+  const distribution: GradeDistributionDataPoint[] = [];
+  gradeArray.forEach((grade, index) => {
+    const sends = gradeSends.get(grade) || 0;
+    const attempts = gradeAttempts.get(grade) || 0;
+    const total = sends + attempts;
+    if (total > 0) {
+      // Map grade index to color scale
+      const colorIndex = Math.floor((index / gradeArray.length) * GRADE_COLOR_SCALE.length);
+      distribution.push({
+        label: grade,
+        sends,
+        attempts,
+        total,
+        color: GRADE_COLOR_SCALE[Math.min(colorIndex, GRADE_COLOR_SCALE.length - 1)],
+      });
+    }
+  });
+
+  return distribution;
 }
 
 /**
@@ -177,4 +201,142 @@ export function getGradeLabel(type: ClimbType, gradeIndex: number): string {
     return '';
   }
   return gradeArray[gradeIndex];
+}
+
+export interface CalendarDayData {
+  date: Date;
+  dateKey: string;
+  totalCount: number;
+  intensity: 0 | 1 | 2 | 3 | 4;
+}
+
+export interface SessionCalendarData {
+  days: CalendarDayData[];
+  weeks: CalendarDayData[][];
+  activeDays: number;
+  monthLabels: { label: string; weekIndex: number }[];
+}
+
+/**
+ * Get calendar data for session activity visualization
+ */
+export function getSessionCalendarData(
+  climbs: Climb[],
+  type: ClimbType,
+  months: number = 6
+): SessionCalendarData {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Filter climbs by type
+  const typeClimbs = climbs.filter((c) => c.type === type);
+
+  // Find the Monday of the current week
+  const currentWeekStart = getWeekStart(today);
+
+  // Calculate start date (beginning of week, N months ago)
+  const startDate = new Date(currentWeekStart);
+  startDate.setMonth(startDate.getMonth() - months);
+  const calendarStart = getWeekStart(startDate);
+
+  // Build a map of date -> climb count
+  const climbsByDate = new Map<string, number>();
+
+  typeClimbs.forEach((climb) => {
+    const d = new Date(climb.timestamp);
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    climbsByDate.set(dateKey, (climbsByDate.get(dateKey) || 0) + 1);
+  });
+
+  // Calculate intensity thresholds based on active days
+  const counts = Array.from(climbsByDate.values()).sort((a, b) => a - b);
+  const getIntensity = (count: number): 0 | 1 | 2 | 3 | 4 => {
+    if (count === 0) return 0;
+    if (counts.length === 0) return 1;
+    const maxCount = counts[counts.length - 1];
+    if (maxCount <= 1) return count > 0 ? 4 : 0;
+    const ratio = count / maxCount;
+    if (ratio <= 0.25) return 1;
+    if (ratio <= 0.5) return 2;
+    if (ratio <= 0.75) return 3;
+    return 4;
+  };
+
+  // Generate all days from calendarStart to today
+  const days: CalendarDayData[] = [];
+  const currentDate = new Date(calendarStart);
+
+  while (currentDate <= today) {
+    const dateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+    const totalCount = climbsByDate.get(dateKey) || 0;
+
+    days.push({
+      date: new Date(currentDate),
+      dateKey,
+      totalCount,
+      intensity: getIntensity(totalCount),
+    });
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // Group days into weeks (each week is Mon-Sun)
+  const weeks: CalendarDayData[][] = [];
+  let currentWeek: CalendarDayData[] = [];
+
+  // Pad the first week if it doesn't start on Monday
+  const firstDayOfWeek = days[0]?.date.getDay() || 1;
+  const mondayOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+  for (let i = 0; i < mondayOffset; i++) {
+    const paddingDate = new Date(days[0].date);
+    paddingDate.setDate(paddingDate.getDate() - (mondayOffset - i));
+    currentWeek.push({
+      date: paddingDate,
+      dateKey: '',
+      totalCount: 0,
+      intensity: 0,
+    });
+  }
+
+  days.forEach((day) => {
+    currentWeek.push(day);
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek);
+      currentWeek = [];
+    }
+  });
+
+  // Pad the last week if needed
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) {
+      currentWeek.push({
+        date: new Date(),
+        dateKey: '',
+        totalCount: 0,
+        intensity: 0,
+      });
+    }
+    weeks.push(currentWeek);
+  }
+
+  // Generate month labels
+  const monthLabels: { label: string; weekIndex: number }[] = [];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let lastMonth = -1;
+
+  weeks.forEach((week, weekIndex) => {
+    // Check the first valid day of the week for month
+    const firstValidDay = week.find((d) => d.dateKey !== '');
+    if (firstValidDay) {
+      const month = firstValidDay.date.getMonth();
+      if (month !== lastMonth) {
+        monthLabels.push({ label: monthNames[month], weekIndex });
+        lastMonth = month;
+      }
+    }
+  });
+
+  const activeDays = days.filter((d) => d.totalCount > 0).length;
+
+  return { days, weeks, activeDays, monthLabels };
 }

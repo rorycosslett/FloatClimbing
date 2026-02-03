@@ -14,6 +14,7 @@ export const colors = {
 
   // Accent colors
   primary: '#007aff',
+  secondary: '#712DDE',
   success: '#34c759',
   danger: '#ff3b30',
   warning: '#502EAF',

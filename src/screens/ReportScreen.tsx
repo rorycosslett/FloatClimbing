@@ -11,6 +11,7 @@ import { colors } from '../theme/colors';
 import GradeProgressionChart from '../components/charts/GradeProgressionChart';
 import WeeklyActivityChart from '../components/charts/WeeklyActivityChart';
 import GradeDistributionChart from '../components/charts/GradeDistributionChart';
+import SessionCalendarChart from '../components/charts/SessionCalendarChart';
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
@@ -143,9 +144,10 @@ export default function ReportScreen() {
           </View>
         ) : (
           <>
+            <GradeDistributionChart climbs={climbs} type={selectedType} />
+            <SessionCalendarChart climbs={climbs} type={selectedType} />
             <GradeProgressionChart climbs={climbs} type={selectedType} />
             <WeeklyActivityChart climbs={climbs} type={selectedType} />
-            <GradeDistributionChart climbs={climbs} type={selectedType} />
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Summary ({stats.weeksToShow} Weeks)</Text>

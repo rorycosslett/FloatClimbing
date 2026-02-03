@@ -6,16 +6,18 @@ import {
   Pressable,
   StyleSheet,
   TextInput,
+  Modal,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToastProps } from 'react-native-toast-message';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
 import { getGradesForSettings } from '../data/grades';
 import { getDisplayGrade, getSecondaryGrade } from '../utils/gradeUtils';
-import { ClimbType, Climb } from '../types';
+import { ClimbType } from '../types';
 import { colors } from '../theme/colors';
 
 type EditSessionRouteParams = {
@@ -26,6 +28,32 @@ type EditSessionRouteParams = {
 };
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
+
+const modalToastConfig = {
+  success: ({ text1 }: BaseToastProps) => (
+    <View style={modalToastStyles.container}>
+      <Text style={modalToastStyles.text}>{text1}</Text>
+    </View>
+  ),
+};
+
+const modalToastStyles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.surfaceSecondary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  text: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+});
 
 function formatTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString([], {
@@ -44,6 +72,7 @@ export default function EditSessionScreen() {
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const [sessionName, setSessionName] = useState(getSessionName(sessionId, startTime));
   const [isEditingName, setIsEditingName] = useState(false);
+  const [showAddClimbModal, setShowAddClimbModal] = useState(false);
 
   const sessionClimbs = climbs
     .filter((c) => c.sessionId === sessionId)
@@ -52,6 +81,9 @@ export default function EditSessionScreen() {
   const currentGrades = getGradesForSettings(selectedType, settings.grades);
 
   const handleAddClimb = (grade: string, status: 'send' | 'attempt') => {
+    Haptics.impactAsync(
+      status === 'send' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
+    );
     addClimbToSession(sessionId, grade, selectedType, status);
     const message = status === 'attempt' ? `${grade} attempt added` : `${grade} send added`;
     Toast.show({
@@ -106,20 +138,6 @@ export default function EditSessionScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.typeSelector}>
-        {CLIMB_TYPES.map((type) => (
-          <Pressable
-            key={type}
-            style={[styles.typeBtn, selectedType === type && styles.typeBtnActive]}
-            onPress={() => setSelectedType(type)}
-          >
-            <Text style={[styles.typeText, selectedType === type && styles.typeTextActive]}>
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
@@ -154,44 +172,85 @@ export default function EditSessionScreen() {
               ))}
             </View>
           )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Add Climb</Text>
-          <View style={styles.gradesList}>
-            {currentGrades.map((grade) => (
-              <View key={grade} style={styles.gradeRow}>
-                <View style={styles.gradeLabels}>
-                  <Text style={styles.gradeLabel}>{grade}</Text>
-                  <Text style={styles.secondaryGradeLabel}>
-                    {getSecondaryGrade(grade, selectedType, settings.grades)}
-                  </Text>
-                </View>
-                <View style={styles.buttons}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.tickBtn,
-                      pressed && styles.tickBtnPressed,
-                    ]}
-                    onPress={() => handleAddClimb(grade, 'send')}
-                  >
-                    <Text style={[styles.tickBtnText, styles.sendText]}>✓</Text>
-                  </Pressable>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.attemptBtn,
-                      pressed && styles.attemptBtnPressed,
-                    ]}
-                    onPress={() => handleAddClimb(grade, 'attempt')}
-                  >
-                    <Text style={styles.attemptBtnText}>○</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-          </View>
+          <Pressable
+            style={styles.addClimbButton}
+            onPress={() => setShowAddClimbModal(true)}
+          >
+            <Ionicons name="add" size={20} color="#fff" />
+            <Text style={styles.addClimbButtonText}>Add Climb</Text>
+          </Pressable>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showAddClimbModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAddClimbModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Add Climb</Text>
+            <Pressable
+              onPress={() => setShowAddClimbModal(false)}
+              style={styles.modalCloseBtn}
+              hitSlop={12}
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </Pressable>
+          </View>
+
+          <View style={styles.typeSelector}>
+            {CLIMB_TYPES.map((type) => (
+              <Pressable
+                key={type}
+                style={[styles.typeBtn, selectedType === type && styles.typeBtnActive]}
+                onPress={() => setSelectedType(type)}
+              >
+                <Text style={[styles.typeText, selectedType === type && styles.typeTextActive]}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.gradesList}>
+              {currentGrades.map((grade) => (
+                <View key={grade} style={styles.gradeRow}>
+                  <View style={styles.gradeLabels}>
+                    <Text style={styles.gradeLabel}>{grade}</Text>
+                    <Text style={styles.secondaryGradeLabel}>
+                      {getSecondaryGrade(grade, selectedType, settings.grades)}
+                    </Text>
+                  </View>
+                  <View style={styles.buttons}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.tickBtn,
+                        pressed && styles.tickBtnPressed,
+                      ]}
+                      onPress={() => handleAddClimb(grade, 'send')}
+                    >
+                      <Text style={[styles.tickBtnText, styles.sendText]}>✓</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.attemptBtn,
+                        pressed && styles.attemptBtnPressed,
+                      ]}
+                      onPress={() => handleAddClimb(grade, 'attempt')}
+                    >
+                      <Text style={styles.attemptBtnText}>○</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+        <Toast config={modalToastConfig} />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -424,5 +483,48 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: colors.warning,
+  },
+  addClimbButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    marginHorizontal: 16,
+    marginVertical: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+  },
+  addClimbButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    right: 16,
+    padding: 4,
+  },
+  modalContent: {
+    flex: 1,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -6,12 +6,16 @@ import {
   Pressable,
   StyleSheet,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SessionSummary, ClimbType, GradeCount, Climb, GradeSettings } from '../types';
 import { colors } from '../theme/colors';
 import { generateSessionName } from '../utils/sessionUtils';
 import { useSettings } from '../context/SettingsContext';
+import { useClimbs } from '../context/ClimbContext';
 import { getDisplayGrade } from '../utils/gradeUtils';
 
 interface SessionSummaryModalProps {
@@ -19,7 +23,7 @@ interface SessionSummaryModalProps {
   summary: SessionSummary | null;
   isPaused?: boolean;
   onDismiss: (name?: string) => void;
-  onResume?: () => void;
+  onResume?: (name?: string) => void;
   onFinish?: (name?: string) => void;
 }
 
@@ -117,7 +121,16 @@ export function SessionSummaryModal({
   onFinish,
 }: SessionSummaryModalProps) {
   const { settings } = useSettings();
+  const { sessionMetadata } = useClimbs();
   const [sessionName, setSessionName] = useState('');
+
+  // Load the previously saved name when the modal opens
+  useEffect(() => {
+    if (visible && summary?.sessionId) {
+      const savedName = sessionMetadata[summary.sessionId]?.name || '';
+      setSessionName(savedName);
+    }
+  }, [visible, summary?.sessionId, sessionMetadata]);
 
   if (!summary) return null;
 
@@ -135,8 +148,9 @@ export function SessionSummaryModal({
   };
 
   const handleResume = () => {
+    const nameToSave = sessionName.trim() || undefined;
+    onResume?.(nameToSave);
     setSessionName('');
-    onResume?.();
   };
 
   const handleFinish = () => {
@@ -152,7 +166,10 @@ export function SessionSummaryModal({
       animationType="fade"
       onRequestClose={() => {}}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.modalContent}>
           {/* Header: Session name input at top */}
           <View style={styles.cardHeader}>
@@ -164,6 +181,8 @@ export function SessionSummaryModal({
                 placeholder={defaultName}
                 placeholderTextColor={colors.textMuted}
                 maxLength={50}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
               <Ionicons name="pencil" size={16} color={colors.textMuted} />
             </View>
@@ -226,7 +245,7 @@ export function SessionSummaryModal({
             </Pressable>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

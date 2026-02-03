@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -75,6 +76,9 @@ export default function LogScreen() {
   }, [activeSession]);
 
   const handleLog = (grade: string, status: 'send' | 'attempt') => {
+    Haptics.impactAsync(
+      status === 'send' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
+    );
     addClimb(grade, selectedType, status);
     const message = status === 'attempt' ? `${grade} attempt logged` : `${grade} send logged`;
     Toast.show({
@@ -109,7 +113,10 @@ export default function LogScreen() {
     });
   };
 
-  const handleResume = () => {
+  const handleResume = (name?: string) => {
+    if (sessionSummary && name) {
+      renameSession(sessionSummary.sessionId, name);
+    }
     resumeSession();
     setSummaryModalVisible(false);
     setSessionSummary(null);
