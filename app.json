@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "ClimbTracker",
-    "slug": "ClimbTracker",
+    "name": "Float Climbing",
+    "slug": "float-climbing",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,15 +12,16 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
+    "scheme": "io.floatclimbing.app",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "io.climbtracker.app",
+      "bundleIdentifier": "io.floatclimbing.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "io.climbtracker.app",
+      "package": "io.floatclimbing.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"

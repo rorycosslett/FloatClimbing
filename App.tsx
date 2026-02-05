@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -7,9 +7,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast, { BaseToastProps } from 'react-native-toast-message';
 
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ClimbProvider } from './src/context/ClimbContext';
 import { SettingsProvider } from './src/context/SettingsContext';
 import { colors } from './src/theme/colors';
+import LoginScreen from './src/screens/LoginScreen';
 import LogScreen from './src/screens/LogScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ReportScreen from './src/screens/ReportScreen';
@@ -78,27 +80,65 @@ function MainTabs() {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={colors.primary} />
+    </View>
+  );
+}
+
+function AppNavigator() {
+  const { session, isLoading, isGuest } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  // Show login screen if not authenticated and not in guest mode
+  if (!session && !isGuest) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Login" component={LoginScreen} />
+      </Stack.Navigator>
+    );
+  }
+
+  // Show main app for authenticated users or guests
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Main" component={MainTabs} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="EditSession" component={EditSessionScreen} />
+    </Stack.Navigator>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <SettingsProvider>
-        <ClimbProvider>
-          <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Main" component={MainTabs} />
-              <Stack.Screen name="Settings" component={SettingsScreen} />
-              <Stack.Screen name="EditSession" component={EditSessionScreen} />
-            </Stack.Navigator>
-            <StatusBar style="light" />
-          </NavigationContainer>
-          <Toast config={toastConfig} />
-        </ClimbProvider>
-      </SettingsProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <ClimbProvider>
+            <NavigationContainer>
+              <AppNavigator />
+              <StatusBar style="light" />
+            </NavigationContainer>
+            <Toast config={toastConfig} />
+          </ClimbProvider>
+        </SettingsProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
   toastContainer: {
     backgroundColor: colors.surfaceSecondary,
     paddingHorizontal: 20,

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import * as Crypto from 'expo-crypto';
 import {
   Climb,
@@ -20,10 +20,13 @@ import {
 } from '../data/storage';
 import { generateSessionName } from '../utils/sessionUtils';
 import { getNormalizedGradeIndex } from '../utils/gradeUtils';
+import { syncService } from '../services/syncService';
+import { useAuth } from './AuthContext';
 
 interface ClimbContextType {
   climbs: Climb[];
   isLoading: boolean;
+  isSyncing: boolean;
   activeSession: Session | null;
   sessionMetadata: Record<string, SessionMetadata>;
   addClimb: (grade: string, type: ClimbType, status: ClimbStatus) => void;
@@ -37,16 +40,26 @@ interface ClimbContextType {
   getSessionClimbCount: () => number;
   renameSession: (sessionId: string, name: string) => void;
   getSessionName: (sessionId: string, startTime: string) => string;
+  syncData: () => Promise<void>;
 }
 
 const ClimbContext = createContext<ClimbContextType | undefined>(undefined);
 
 export function ClimbProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [climbs, setClimbs] = useState<Climb[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [sessionMetadata, setSessionMetadata] = useState<Record<string, SessionMetadata>>({});
+  const hasInitialSynced = useRef(false);
 
+  // Update syncService when user changes
+  useEffect(() => {
+    syncService.setUserId(user?.id || null);
+  }, [user?.id]);
+
+  // Load local data on mount
   useEffect(() => {
     Promise.all([loadClimbs(), loadSession(), loadSessionMetadata()]).then(
       ([climbData, sessionData, metadataData]) => {
@@ -63,6 +76,51 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  // Sync when user logs in
+  useEffect(() => {
+    if (user && !isLoading && !hasInitialSynced.current) {
+      hasInitialSynced.current = true;
+      syncData();
+    }
+  }, [user, isLoading]);
+
+  const syncData = useCallback(async () => {
+    if (!user || isSyncing) return;
+
+    setIsSyncing(true);
+    try {
+      // Extract sessions from climbs for sync
+      const sessionIds = [...new Set(climbs.map((c) => c.sessionId))];
+      const localSessions: Session[] = sessionIds.map((id) => {
+        const sessionClimbs = climbs.filter((c) => c.sessionId === id);
+        const metadata = sessionMetadata[id];
+        const firstClimb = sessionClimbs.reduce((a, b) =>
+          new Date(a.timestamp) < new Date(b.timestamp) ? a : b
+        );
+        const lastClimb = sessionClimbs.reduce((a, b) =>
+          new Date(a.timestamp) > new Date(b.timestamp) ? a : b
+        );
+
+        return {
+          id,
+          startTime: firstClimb.timestamp,
+          endTime: lastClimb.timestamp,
+          name: metadata?.name,
+        };
+      });
+
+      const { climbs: syncedClimbs } = await syncService.syncLocalData(climbs, localSessions);
+
+      // Update local state with synced data
+      setClimbs(syncedClimbs);
+      saveClimbs(syncedClimbs);
+    } catch (error) {
+      console.error('Sync error:', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user, climbs, sessionMetadata, isSyncing]);
+
   const addClimb = (grade: string, type: ClimbType, status: ClimbStatus) => {
     if (!activeSession) {
       return; // Cannot add climbs without an active session
@@ -78,6 +136,11 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     const updated = [...climbs, newClimb];
     setClimbs(updated);
     saveClimbs(updated);
+
+    // Sync to cloud if authenticated
+    if (user) {
+      syncService.upsertClimb(newClimb).catch(console.error);
+    }
   };
 
   const addClimbToSession = (sessionId: string, grade: string, type: ClimbType, status: ClimbStatus) => {
@@ -92,12 +155,22 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     const updated = [...climbs, newClimb];
     setClimbs(updated);
     saveClimbs(updated);
+
+    // Sync to cloud if authenticated
+    if (user) {
+      syncService.upsertClimb(newClimb).catch(console.error);
+    }
   };
 
   const deleteClimb = (id: string) => {
     const updated = climbs.filter((c) => c.id !== id);
     setClimbs(updated);
     saveClimbs(updated);
+
+    // Sync to cloud if authenticated
+    if (user) {
+      syncService.deleteClimb(id).catch(console.error);
+    }
   };
 
   const deleteSession = (sessionId: string) => {
@@ -110,6 +183,11 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     const { [sessionId]: _removed, ...remainingMetadata } = sessionMetadata;
     setSessionMetadata(remainingMetadata);
     saveSessionMetadata(remainingMetadata);
+
+    // Sync to cloud if authenticated
+    if (user) {
+      syncService.deleteSession(sessionId).catch(console.error);
+    }
   };
 
   const startSession = () => {
@@ -119,6 +197,11 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     };
     setActiveSession(session);
     saveSession(session);
+
+    // Sync to cloud if authenticated
+    if (user) {
+      syncService.upsertSession(session).catch(console.error);
+    }
   };
 
   const endSession = (name?: string): SessionSummary | null => {
@@ -208,6 +291,16 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       const updatedMetadata = { ...sessionMetadata, [activeSession.id]: { name } };
       setSessionMetadata(updatedMetadata);
       saveSessionMetadata(updatedMetadata);
+    }
+
+    // Sync completed session to cloud
+    if (user) {
+      const completedSession: Session = {
+        ...activeSession,
+        endTime,
+        name,
+      };
+      syncService.upsertSession(completedSession).catch(console.error);
     }
 
     setActiveSession(null);
@@ -407,6 +500,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       value={{
         climbs,
         isLoading,
+        isSyncing,
         activeSession,
         sessionMetadata,
         addClimb,
@@ -420,6 +514,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         getSessionClimbCount,
         renameSession,
         getSessionName,
+        syncData,
       }}
     >
       {children}
