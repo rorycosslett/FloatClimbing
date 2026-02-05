@@ -50,6 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithOAuth = async (provider: 'google' | 'apple') => {
+    console.log('Redirect URL:', redirectUrl);
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -60,6 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) throw error;
     if (!data.url) throw new Error('No OAuth URL returned');
+
+    console.log('OAuth URL:', data.url);
 
     // Open the OAuth URL in a browser
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
