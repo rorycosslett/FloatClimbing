@@ -12,11 +12,13 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Toast, { BaseToastProps } from 'react-native-toast-message';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
 import { getGradesForSettings } from '../data/grades';
 import { getDisplayGrade, getSecondaryGrade } from '../utils/gradeUtils';
+import { getGradeGradientColors } from '../utils/gradeColors';
 import { ClimbType } from '../types';
 import { colors } from '../theme/colors';
 
@@ -214,39 +216,50 @@ export default function EditSessionScreen() {
             ))}
           </View>
 
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.gradesList}>
-              {currentGrades.map((grade) => (
+          <View style={styles.columnHeaders}>
+            <Text style={styles.columnHeaderText}>Attempts</Text>
+            <Text style={styles.columnHeaderText}>Sends</Text>
+          </View>
+          <ScrollView style={styles.gradeList}>
+            {currentGrades.map((grade) => {
+              const secondaryGrade = getSecondaryGrade(grade, selectedType, settings.grades);
+              const gradientColors = getGradeGradientColors(grade, selectedType, settings.grades);
+              return (
                 <View key={grade} style={styles.gradeRow}>
-                  <View style={styles.gradeLabels}>
-                    <Text style={styles.gradeLabel}>{grade}</Text>
-                    <Text style={styles.secondaryGradeLabel}>
-                      {getSecondaryGrade(grade, selectedType, settings.grades)}
-                    </Text>
-                  </View>
-                  <View style={styles.buttons}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.tickBtn,
-                        pressed && styles.tickBtnPressed,
-                      ]}
-                      onPress={() => handleAddClimb(grade, 'send')}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.attemptPill,
+                      pressed && styles.attemptPillPressed,
+                    ]}
+                    onPress={() => handleAddClimb(grade, 'attempt')}
+                  >
+                    <View style={styles.pillContent}>
+                      <Text style={styles.pillText}>{grade}</Text>
+                      <Text style={styles.pillSecondaryText}>{secondaryGrade}</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.sendPillWrapper,
+                      pressed && styles.sendPillPressed,
+                    ]}
+                    onPress={() => handleAddClimb(grade, 'send')}
+                  >
+                    <LinearGradient
+                      colors={gradientColors}
+                      start={{ x: 1, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={styles.sendPillGradient}
                     >
-                      <Text style={[styles.tickBtnText, styles.sendText]}>✓</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.attemptBtn,
-                        pressed && styles.attemptBtnPressed,
-                      ]}
-                      onPress={() => handleAddClimb(grade, 'attempt')}
-                    >
-                      <Text style={styles.attemptBtnText}>○</Text>
-                    </Pressable>
-                  </View>
+                      <View style={styles.pillContent}>
+                        <Text style={styles.pillText}>{grade}</Text>
+                        <Text style={styles.pillSecondaryText}>{secondaryGrade}</Text>
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
                 </View>
-              ))}
-            </View>
+              );
+            })}
           </ScrollView>
         </SafeAreaView>
         <Toast config={modalToastConfig} />
@@ -412,77 +425,79 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     padding: 4,
   },
-  gradesList: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  columnHeaders: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 48,
+  },
+  columnHeaderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flex: 1,
+    textAlign: 'center',
+  },
+  gradeList: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
   },
   gradeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 48,
+  },
+  sendPillWrapper: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  sendPillGradient: {
+    paddingHorizontal: 12,
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    alignItems: 'center',
   },
-  gradeLabels: {
+  sendPillPressed: {
+    opacity: 0.8,
+  },
+  attemptPill: {
+    backgroundColor: colors.textSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    flex: 1,
+    alignItems: 'center',
+  },
+  attemptPillPressed: {
+    opacity: 0.8,
+  },
+  pillContent: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    gap: 6,
   },
-  gradeLabel: {
-    fontSize: 18,
-    fontWeight: '500',
-    minWidth: 50,
-    color: colors.text,
-  },
-  secondaryGradeLabel: {
+  pillText: {
     fontSize: 15,
+    fontWeight: '600',
+    color: '#ffffff',
+    width: 44,
+    textAlign: 'center',
+  },
+  pillSecondaryText: {
+    fontSize: 12,
     fontWeight: '400',
-    color: colors.textMuted,
+    color: '#ffffff',
     opacity: 0.7,
-  },
-  buttons: {
-    flexDirection: 'row',
-    marginLeft: 'auto',
-    gap: 8,
-  },
-  tickBtn: {
-    width: 48,
-    height: 40,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  tickBtnPressed: {
-    backgroundColor: colors.primary,
-  },
-  tickBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  sendText: {
-    color: colors.primary,
-  },
-  attemptBtn: {
-    width: 48,
-    height: 40,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  attemptBtnPressed: {
-    backgroundColor: colors.warning,
-  },
-  attemptBtnText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.warning,
+    width: 24,
+    textAlign: 'left',
   },
   addClimbButton: {
     flexDirection: 'row',

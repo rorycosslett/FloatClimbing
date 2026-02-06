@@ -37,10 +37,11 @@ export default function WeeklyActivityChart({ climbs, type }: Props) {
   }
 
   // Create stacked bar data
+  // Attempts shown with gray, sends with grade-consistent blue
   const stackData = data.map((d) => ({
     stacks: [
-      { value: d.attempts, color: colors.secondary },
-      { value: d.sends, color: colors.primary },
+      { value: d.attempts, color: colors.border },
+      { value: d.sends, color: '#1384FF' },
     ],
     label: d.label,
   }));
@@ -52,11 +53,11 @@ export default function WeeklyActivityChart({ climbs, type }: Props) {
       <Text style={styles.title}>Weekly Activity</Text>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+          <View style={[styles.legendBox, { backgroundColor: '#1384FF' }]} />
           <Text style={styles.legendText}>Sends</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colors.secondary }]} />
+          <View style={[styles.legendBox, { backgroundColor: colors.border }]} />
           <Text style={styles.legendText}>Attempts</Text>
         </View>
       </View>
@@ -117,10 +118,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  legendBox: {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
   },
   legendText: {
     fontSize: 11,

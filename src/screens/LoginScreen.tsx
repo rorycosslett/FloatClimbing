@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -15,8 +15,9 @@ export default function LoginScreen() {
     setError(null);
     try {
       await signInWithGoogle();
-    } catch (e) {
-      setError('Failed to sign in with Google');
+    } catch (e: any) {
+      console.error('Google sign-in error:', e);
+      setError(e?.message || 'Failed to sign in with Google');
     } finally {
       setIsLoading(null);
     }
@@ -27,8 +28,9 @@ export default function LoginScreen() {
     setError(null);
     try {
       await signInWithApple();
-    } catch (e) {
-      setError('Failed to sign in with Apple');
+    } catch (e: any) {
+      console.error('Apple sign-in error:', e);
+      setError(e?.message || 'Failed to sign in with Apple');
     } finally {
       setIsLoading(null);
     }
@@ -38,10 +40,13 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Ionicons name="fitness" size={64} color={colors.primary} />
-          <Text style={styles.title}>Float Climbing</Text>
+          <Image
+            source={require('../../assets/largelogo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>
-            Track your climbing progress, sync across devices, and connect with fellow climbers.
+            Log your sends and attempts. Improve with data insights. Get inspired by other climbers.
           </Text>
         </View>
 
@@ -123,11 +128,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 60,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 16,
+  logo: {
+    width: 280,
+    height: 140,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,

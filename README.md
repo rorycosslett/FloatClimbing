@@ -1,4 +1,4 @@
-# ClimbTracker
+# Float Climbing
 
 A React Native mobile app for tracking your climbing sessions, logging sends and attempts, and viewing progress insights.
 
@@ -67,7 +67,7 @@ npm run web
 ## Project Structure
 
 ```
-ClimbTracker/
+FloatClimbing/
 ├── src/
 │   ├── context/       # React Context providers
 │   ├── screens/       # App screens (Log, History, Insights)

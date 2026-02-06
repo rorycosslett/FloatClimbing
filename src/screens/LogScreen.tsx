@@ -5,10 +5,12 @@ import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
 import { getGradesForSettings } from '../data/grades';
 import { getDisplayGrade, getSecondaryGrade } from '../utils/gradeUtils';
+import { getGradeGradientColors } from '../utils/gradeColors';
 import { ClimbType, SessionSummary } from '../types';
 import { colors } from '../theme/colors';
 import { SessionSummaryModal } from '../components/SessionSummaryModal';
@@ -189,41 +191,62 @@ export default function LogScreen() {
 
 
       <View style={styles.splitContainer}>
+        <View style={styles.columnHeaders}>
+          <Text style={styles.columnHeaderText}>Attempts</Text>
+          <Text style={styles.columnHeaderText}>Sends</Text>
+        </View>
         <ScrollView style={styles.gradeList}>
-          {currentGrades.map((grade) => (
-            <View key={grade} style={styles.gradeRow}>
-              <View style={styles.gradeLabels}>
-                <Text style={[styles.gradeLabel, !activeSession && styles.gradeLabelDisabled]}>{grade}</Text>
-                <Text style={[styles.secondaryGradeLabel, !activeSession && styles.gradeLabelDisabled]}>
-                  {getSecondaryGrade(grade, selectedType, settings.grades)}
-                </Text>
-              </View>
-              <View style={styles.buttons}>
+          {currentGrades.map((grade) => {
+            const secondaryGrade = getSecondaryGrade(grade, selectedType, settings.grades);
+            const gradientColors = getGradeGradientColors(grade, selectedType, settings.grades);
+            return (
+              <View key={grade} style={styles.gradeRow}>
                 <Pressable
                   style={({ pressed }) => [
-                    styles.tickBtn,
-                    pressed && activeSession && styles.tickBtnPressed,
-                    !activeSession && styles.btnDisabled,
-                  ]}
-                  onPress={() => handleLog(grade, 'send')}
-                  disabled={!activeSession}
-                >
-                  <Text style={[styles.tickBtnText, styles.sendText, !activeSession && styles.textDisabled]}>✓</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.attemptBtn,
-                    pressed && activeSession && styles.attemptBtnPressed,
-                    !activeSession && styles.btnDisabled,
+                    styles.attemptPill,
+                    pressed && activeSession && styles.attemptPillPressed,
+                    !activeSession && styles.pillDisabled,
                   ]}
                   onPress={() => handleLog(grade, 'attempt')}
                   disabled={!activeSession}
                 >
-                  <Text style={[styles.attemptBtnText, !activeSession && styles.textDisabled]}>○</Text>
+                  <View style={styles.pillContent}>
+                    <Text style={[styles.pillText, !activeSession && styles.pillTextDisabled]}>{grade}</Text>
+                    <Text style={[styles.pillSecondaryText, !activeSession && styles.pillTextDisabled]}>{secondaryGrade}</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.sendPillWrapper,
+                    pressed && activeSession && styles.sendPillPressed,
+                  ]}
+                  onPress={() => handleLog(grade, 'send')}
+                  disabled={!activeSession}
+                >
+                  {activeSession ? (
+                    <LinearGradient
+                      colors={gradientColors}
+                      start={{ x: 1, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={styles.sendPillGradient}
+                    >
+                      <View style={styles.pillContent}>
+                        <Text style={styles.pillText}>{grade}</Text>
+                        <Text style={styles.pillSecondaryText}>{secondaryGrade}</Text>
+                      </View>
+                    </LinearGradient>
+                  ) : (
+                    <View style={[styles.sendPillGradient, styles.pillDisabled]}>
+                      <View style={styles.pillContent}>
+                        <Text style={[styles.pillText, styles.pillTextDisabled]}>{grade}</Text>
+                        <Text style={[styles.pillSecondaryText, styles.pillTextDisabled]}>{secondaryGrade}</Text>
+                      </View>
+                    </View>
+                  )}
                 </Pressable>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
 
         {activeSession && (
@@ -388,80 +411,77 @@ const styles = StyleSheet.create({
   },
   gradeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  gradeLabels: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    justifyContent: 'center',
     gap: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 48,
   },
-  gradeLabel: {
-    fontSize: 19,
-    fontWeight: '500',
-    minWidth: 50,
-    color: colors.text,
+  columnHeaders: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 48,
   },
-  secondaryGradeLabel: {
-    fontSize: 16,
+  columnHeaderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flex: 1,
+    textAlign: 'center',
+  },
+  sendPillWrapper: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  sendPillGradient: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  sendPillPressed: {
+    opacity: 0.8,
+  },
+  attemptPill: {
+    backgroundColor: colors.textSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    flex: 1,
+    alignItems: 'center',
+  },
+  attemptPillPressed: {
+    opacity: 0.8,
+  },
+  pillDisabled: {
+    backgroundColor: colors.border,
+  },
+  pillContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    gap: 6,
+  },
+  pillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ffffff',
+    width: 44,
+    textAlign: 'center',
+  },
+  pillSecondaryText: {
+    fontSize: 12,
     fontWeight: '400',
-    color: colors.textMuted,
+    color: '#ffffff',
     opacity: 0.7,
+    width: 24,
+    textAlign: 'left',
   },
-  gradeLabelDisabled: {
-    color: colors.textMuted,
-  },
-  buttons: {
-    flexDirection: 'row',
-    marginLeft: 'auto',
-    gap: 8,
-  },
-  tickBtn: {
-    width: 52,
-    height: 44,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  tickBtnPressed: {
-    backgroundColor: colors.primary,
-  },
-  tickBtnText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  sendText: {
-    color: colors.primary,
-  },
-  attemptBtn: {
-    width: 52,
-    height: 44,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  attemptBtnPressed: {
-    backgroundColor: colors.warning,
-  },
-  attemptBtnText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.warning,
-  },
-  btnDisabled: {
-    borderColor: colors.border,
-    opacity: 0.5,
-  },
-  textDisabled: {
+  pillTextDisabled: {
     color: colors.textMuted,
   },
   fab: {
@@ -594,7 +614,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   attemptIcon: {
-    color: colors.warning,
+    color: colors.textSecondary,
     fontSize: 14,
     marginRight: 8,
     width: 18,

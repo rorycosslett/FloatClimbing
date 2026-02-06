@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Climb, ClimbType } from '../../types';
 import { colors } from '../../theme/colors';
 import { getGradeDistributionData } from '../../utils/chartDataUtils';
@@ -50,7 +51,12 @@ export default function GradeDistributionChart({ climbs, type }: Props) {
       </View>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendBox, { backgroundColor: colors.primary }]} />
+          <LinearGradient
+            colors={['#1384FF', '#0048E8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.legendBox}
+          />
           <Text style={styles.legendText}>Sends</Text>
         </View>
         <View style={styles.legendItem}>
@@ -78,15 +84,15 @@ export default function GradeDistributionChart({ climbs, type }: Props) {
                     ]}
                   />
                 )}
-                {/* Solid bar for sends */}
+                {/* Gradient bar for sends */}
                 {d.sends > 0 && (
-                  <View
+                  <LinearGradient
+                    colors={d.gradientColors}
+                    start={{ x: 1, y: 0 }}
+                    end={{ x: 0, y: 1 }}
                     style={[
                       styles.bar,
-                      {
-                        width: sendsWidth,
-                        backgroundColor: d.color,
-                      },
+                      { width: sendsWidth },
                     ]}
                   />
                 )}
@@ -106,16 +112,16 @@ export default function GradeDistributionChart({ climbs, type }: Props) {
                     ]}
                   />
                 )}
-                {/* Solid bar for sends */}
+                {/* Gradient bar for sends */}
                 {d.sends > 0 && (
-                  <View
+                  <LinearGradient
+                    colors={d.gradientColors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
                     style={[
                       styles.bar,
                       styles.barRight,
-                      {
-                        width: sendsWidth,
-                        backgroundColor: d.color,
-                      },
+                      { width: sendsWidth },
                     ]}
                   />
                 )}

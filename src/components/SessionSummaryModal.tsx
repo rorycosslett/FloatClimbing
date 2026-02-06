@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   attemptsStat: {
     fontSize: 14,
-    color: colors.warning,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   gradeBreakdownSection: {
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   attemptPill: {
-    backgroundColor: colors.warning,
+    backgroundColor: colors.textSecondary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,

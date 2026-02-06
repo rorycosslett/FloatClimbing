@@ -17,11 +17,13 @@ type RootStackParamList = {
   EditSession: { sessionId: string; startTime: string };
 };
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
 import { Climb, ClimbType, GradeSettings } from '../types';
 import { colors } from '../theme/colors';
 import { getDisplayGrade, getNormalizedGradeIndex } from '../utils/gradeUtils';
+import { getGradeGradientColors } from '../utils/gradeColors';
 
 interface GroupedClimb extends Climb {
   index: number;
@@ -89,12 +91,29 @@ function getGradeIndexForSort(grade: string, type: ClimbType): number {
 
 function GradePill({ grade, count, type, gradeSettings, variant }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings; variant: 'send' | 'attempt' }) {
   const displayGrade = getDisplayGrade({ grade, type } as Climb, gradeSettings);
+  const gradientColors = getGradeGradientColors(grade, type, gradeSettings);
+
+  if (variant === 'attempt') {
+    return (
+      <View style={styles.attemptPill}>
+        <Text style={styles.gradePillText}>
+          {displayGrade}{count > 1 ? ` ×${count}` : ''}
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={variant === 'send' ? styles.gradePill : styles.attemptPill}>
+    <LinearGradient
+      colors={gradientColors}
+      start={{ x: 1, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.gradePill}
+    >
       <Text style={styles.gradePillText}>
         {displayGrade}{count > 1 ? ` ×${count}` : ''}
       </Text>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -681,13 +700,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   gradePill: {
-    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    overflow: 'hidden',
   },
   attemptPill: {
-    backgroundColor: colors.warning,
+    backgroundColor: colors.textSecondary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -724,7 +743,7 @@ const styles = StyleSheet.create({
   },
   attemptsStat: {
     fontSize: 14,
-    color: colors.warning,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   actionMenuContent: {

@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import { BoulderGradeSystem, RouteGradeSystem } from '../types';
 
@@ -20,6 +21,28 @@ const ROUTE_SYSTEMS: { key: RouteGradeSystem; label: string; example: string }[]
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const { settings, setBoulderSystem, setRouteSystem } = useSettings();
+  const { user, signOut, isGuest } = useAuth();
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (error) {
+              console.error('Sign out error:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -94,6 +117,35 @@ export default function SettingsScreen() {
               </Pressable>
             ))}
           </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Account</Text>
+
+        <View style={styles.card}>
+          {user ? (
+            <View style={styles.accountInfo}>
+              <Ionicons name="person-circle" size={40} color={colors.textSecondary} />
+              <View style={styles.accountDetails}>
+                <Text style={styles.accountEmail}>{user.email}</Text>
+                <Text style={styles.accountProvider}>
+                  Signed in with {user.app_metadata?.provider || 'email'}
+                </Text>
+              </View>
+            </View>
+          ) : isGuest ? (
+            <View style={styles.accountInfo}>
+              <Ionicons name="person-outline" size={40} color={colors.textSecondary} />
+              <View style={styles.accountDetails}>
+                <Text style={styles.accountEmail}>Guest</Text>
+                <Text style={styles.accountProvider}>Data stored locally only</Text>
+              </View>
+            </View>
+          ) : null}
+
+          <Pressable style={styles.signOutButton} onPress={handleSignOut}>
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -181,5 +233,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: 4,
+  },
+  accountInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  accountDetails: {
+    flex: 1,
+  },
+  accountEmail: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  accountProvider: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: 8,
+    padding: 12,
+  },
+  signOutText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.danger,
   },
 });

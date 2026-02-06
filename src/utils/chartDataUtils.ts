@@ -1,5 +1,6 @@
 import { Climb, ClimbType } from '../types';
 import { grades } from '../data/grades';
+import { getGradeGradientColors } from './gradeColors';
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -119,30 +120,8 @@ export interface GradeDistributionDataPoint {
   sends: number;
   attempts: number;
   total: number;
-  color: string;
+  gradientColors: [string, string];
 }
-
-// Color scale from easy (green) to hard (red), avoiding primary blue and secondary purple
-const GRADE_COLOR_SCALE = [
-  '#2ecc71', // emerald green (easiest)
-  '#27ae60', // nephritis green
-  '#1abc9c', // turquoise
-  '#16a085', // green sea
-  '#f1c40f', // sun yellow
-  '#f39c12', // orange
-  '#e67e22', // carrot
-  '#d35400', // pumpkin
-  '#e74c3c', // alizarin red
-  '#c0392b', // pomegranate
-  '#ff6b6b', // coral red
-  '#ee5a5a', // light red
-  '#d63031', // red
-  '#b71540', // dark red
-  '#6d214f', // imperial purple (hardest grades)
-  '#182c61', // dark blue
-  '#0a3d62', // prussian blue
-  '#079992', // teal
-];
 
 /**
  * Get grade distribution data with sends and attempts counted separately
@@ -172,19 +151,22 @@ export function getGradeDistributionData(
 
   // Create distribution for each grade that has climbs
   const distribution: GradeDistributionDataPoint[] = [];
-  gradeArray.forEach((grade, index) => {
+  gradeArray.forEach((grade) => {
     const sends = gradeSends.get(grade) || 0;
     const attempts = gradeAttempts.get(grade) || 0;
     const total = sends + attempts;
     if (total > 0) {
-      // Map grade index to color scale
-      const colorIndex = Math.floor((index / gradeArray.length) * GRADE_COLOR_SCALE.length);
+      // Get gradient colors for this grade
+      const gradientColors = getGradeGradientColors(grade, type, {
+        boulderSystem: 'vscale',
+        routeSystem: 'yds',
+      });
       distribution.push({
         label: grade,
         sends,
         attempts,
         total,
-        color: GRADE_COLOR_SCALE[Math.min(colorIndex, GRADE_COLOR_SCALE.length - 1)],
+        gradientColors,
       });
     }
   });

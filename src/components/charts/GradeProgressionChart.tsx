@@ -43,9 +43,9 @@ export default function GradeProgressionChart({ climbs, type }: Props) {
           width={chartWidth}
           height={150}
           spacing={chartData.length > 1 ? (chartWidth - 40) / (chartData.length - 1) : 0}
-          color={colors.primary}
+          color="#1384FF"
           thickness={2}
-          dataPointsColor={colors.primary}
+          dataPointsColor="#1384FF"
           dataPointsRadius={5}
           curved
           yAxisColor={colors.border}

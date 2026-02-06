@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Float Climbing",
-    "slug": "float-climbing",
+    "slug": "ClimbTracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,22 +12,39 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
-    "scheme": "io.floatclimbing.app",
+    "scheme": "io.climbtracker.app",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "io.floatclimbing.app",
+      "bundleIdentifier": "io.climbtracker.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "io.floatclimbing.app",
+      "package": "io.climbtracker.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "io.climbtracker.app",
+              "host": "auth",
+              "pathPrefix": "/callback"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,6 +59,9 @@
     },
     "updates": {
       "url": "https://u.expo.dev/89fb7b0b-81cd-4c43-b099-afa169d33112"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

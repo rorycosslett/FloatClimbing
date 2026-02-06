@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../services/supabase';
 
@@ -25,11 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
-  // Get the redirect URL for OAuth
-  const redirectUrl = AuthSession.makeRedirectUri({
-    scheme: 'io.floatclimbing.app',
-    path: 'auth/callback',
-  });
+  // Force the native scheme - Expo Go won't work, requires development build
+  const redirectUrl = 'io.climbtracker.app://auth/callback';
+
+  console.log('Expo Linking redirect URL:', redirectUrl);
 
   useEffect(() => {
     // Get initial session
@@ -50,38 +48,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithOAuth = async (provider: 'google' | 'apple') => {
-    console.log('Redirect URL:', redirectUrl);
+    try {
+      console.log('=== OAuth Debug ===');
+      console.log('Provider:', provider);
+      console.log('App Redirect URL:', redirectUrl);
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: redirectUrl,
-        skipBrowserRedirect: true,
-      },
-    });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
+        },
+      });
 
-    if (error) throw error;
-    if (!data.url) throw new Error('No OAuth URL returned');
-
-    console.log('OAuth URL:', data.url);
-
-    // Open the OAuth URL in a browser
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-    if (result.type === 'success' && result.url) {
-      // Extract the tokens from the URL
-      const params = new URL(result.url).hash.substring(1);
-      const urlParams = new URLSearchParams(params);
-      const accessToken = urlParams.get('access_token');
-      const refreshToken = urlParams.get('refresh_token');
-
-      if (accessToken && refreshToken) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (sessionError) throw sessionError;
+      if (error) {
+        console.error('Supabase OAuth error:', error);
+        throw error;
       }
+      if (!data.url) throw new Error('No OAuth URL returned');
+
+      console.log('OAuth URL:', data.url);
+
+      // Open the OAuth URL in a browser
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      console.log('WebBrowser result type:', result.type);
+
+      if (result.type === 'success' && result.url) {
+        console.log('Success URL:', result.url);
+
+        // Check if there's an error in the URL
+        const url = new URL(result.url);
+        const errorParam = url.searchParams.get('error') || url.hash.includes('error');
+        const errorDescription = url.searchParams.get('error_description');
+
+        if (errorParam) {
+          console.error('OAuth error in callback:', errorParam, errorDescription);
+          throw new Error(errorDescription || 'OAuth authentication failed');
+        }
+
+        // Extract the tokens from the URL (could be in hash or query params)
+        let accessToken: string | null = null;
+        let refreshToken: string | null = null;
+
+        // Try hash first (implicit flow)
+        if (url.hash) {
+          const hashParams = new URLSearchParams(url.hash.substring(1));
+          accessToken = hashParams.get('access_token');
+          refreshToken = hashParams.get('refresh_token');
+        }
+
+        // Try query params (PKCE flow)
+        if (!accessToken) {
+          accessToken = url.searchParams.get('access_token');
+          refreshToken = url.searchParams.get('refresh_token');
+        }
+
+        console.log('Access token found:', !!accessToken);
+        console.log('Refresh token found:', !!refreshToken);
+
+        if (accessToken && refreshToken) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            throw sessionError;
+          }
+          console.log('Session set successfully!');
+        } else {
+          console.warn('No tokens found in callback URL');
+        }
+      } else if (result.type === 'cancel') {
+        console.log('User cancelled OAuth');
+      } else if (result.type === 'dismiss') {
+        console.log('OAuth dismissed');
+      }
+    } catch (err) {
+      console.error('signInWithOAuth error:', err);
+      throw err;
     }
   };
 

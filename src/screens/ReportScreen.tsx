@@ -33,27 +33,31 @@ export default function ReportScreen() {
       return d >= new Date(now.getTime() - weeksToShow * oneWeekMs);
     });
 
-    // Calculate max grade index for recent period (using normalized index for comparison)
+    // Calculate max grade index for recent period (sends only)
     let maxGradeIndex = -1;
     let maxGradeClimb: Climb | null = null;
-    recentClimbs.forEach((c) => {
-      const idx = getNormalizedGradeIndex(c.grade, c.type);
-      if (idx > maxGradeIndex) {
-        maxGradeIndex = idx;
-        maxGradeClimb = c;
-      }
-    });
+    recentClimbs
+      .filter((c) => c.status === 'send')
+      .forEach((c) => {
+        const idx = getNormalizedGradeIndex(c.grade, c.type);
+        if (idx > maxGradeIndex) {
+          maxGradeIndex = idx;
+          maxGradeClimb = c;
+        }
+      });
 
-    // All-time stats
+    // All-time stats (sends only)
     let allTimeMaxIdx = -1;
     let allTimeMaxClimb: Climb | null = null;
-    typeClimbs.forEach((c) => {
-      const idx = getNormalizedGradeIndex(c.grade, c.type);
-      if (idx > allTimeMaxIdx) {
-        allTimeMaxIdx = idx;
-        allTimeMaxClimb = c;
-      }
-    });
+    typeClimbs
+      .filter((c) => c.status === 'send')
+      .forEach((c) => {
+        const idx = getNormalizedGradeIndex(c.grade, c.type);
+        if (idx > allTimeMaxIdx) {
+          allTimeMaxIdx = idx;
+          allTimeMaxClimb = c;
+        }
+      });
 
     const allTimeDates = typeClimbs
       .map((c) => new Date(c.timestamp))
@@ -162,7 +166,7 @@ export default function ReportScreen() {
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.recentMaxGrade}</Text>
-                  <Text style={styles.statLabel}>Highest Grade</Text>
+                  <Text style={styles.statLabel}>Highest Send</Text>
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.recentTotal}</Text>
@@ -180,7 +184,7 @@ export default function ReportScreen() {
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.allTimeMaxGrade}</Text>
-                  <Text style={styles.statLabel}>Highest Grade</Text>
+                  <Text style={styles.statLabel}>Highest Send</Text>
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.daysSinceFirst}</Text>
