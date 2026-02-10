@@ -4,10 +4,12 @@ import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
+import { useSocial } from '../context/SocialContext';
 import { getGradesForSettings } from '../data/grades';
 import { getSecondaryGrade } from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
@@ -15,6 +17,12 @@ import { ClimbType, SessionSummary } from '../types';
 import { colors } from '../theme/colors';
 import { SessionSummaryModal } from '../components/SessionSummaryModal';
 import { SwipeableClimbPill } from '../components/SwipeableClimbPill';
+
+type RootStackParamList = {
+  Main: undefined;
+  Settings: undefined;
+  EditSession: { sessionId: string; startTime: string; photoUrl?: string };
+};
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
@@ -31,14 +39,15 @@ function formatDuration(ms: number): string {
 }
 
 export default function LogScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings } = useSettings();
+  const { uploadSessionPhoto } = useSocial();
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const [elapsed, setElapsed] = useState(0);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [sessionListExpanded, setSessionListExpanded] = useState(true);
-  const { climbs, addClimb, deleteClimb, activeSession, startSession, endSession, pauseSession, resumeSession, getSessionClimbCount, renameSession } =
+  const { climbs, addClimb, deleteClimb, activeSession, startSession, endSession, pauseSession, resumeSession, getSessionClimbCount, renameSession, updateSessionPhotoUrl } =
     useClimbs();
 
   const currentGrades = getGradesForSettings(selectedType, settings.grades);
@@ -90,12 +99,6 @@ export default function LogScreen() {
       if (summary) {
         setSessionSummary(summary);
         setSummaryModalVisible(true);
-      } else {
-        Toast.show({
-          type: 'info',
-          text1: 'No climbs logged yet',
-          visibilityTime: 2000,
-        });
       }
     }
   };
@@ -123,13 +126,34 @@ export default function LogScreen() {
     });
   };
 
-  const handleFinish = (name?: string) => {
-    if (sessionSummary && name) {
-      renameSession(sessionSummary.sessionId, name);
-    }
-    endSession();
+  const handleFinish = async (name?: string, photoBase64?: string) => {
+    const sessionId = sessionSummary?.sessionId;
+    const startTime = sessionSummary?.startTime;
+
+    endSession(name);
     setSummaryModalVisible(false);
     setSessionSummary(null);
+
+    let photoUrl: string | undefined;
+    if (photoBase64 && sessionId) {
+      try {
+        photoUrl = (await uploadSessionPhoto(sessionId, photoBase64)) || undefined;
+        if (photoUrl) {
+          updateSessionPhotoUrl(sessionId, photoUrl);
+        }
+      } catch (error) {
+        console.error('Photo upload error:', error);
+      }
+    }
+
+    if (sessionId && startTime) {
+      navigation.navigate('EditSession', {
+        sessionId,
+        startTime,
+        photoUrl,
+      });
+    }
+
     Toast.show({
       type: 'success',
       text1: 'Session finished',

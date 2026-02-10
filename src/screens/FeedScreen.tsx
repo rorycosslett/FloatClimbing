@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useSocial } from '../context/SocialContext';
+import { useClimbs } from '../context/ClimbContext';
 import { colors } from '../theme/colors';
 import { ActivityFeedItem } from '../types';
 import ActivityFeedCard from '../components/ActivityFeedCard';
@@ -23,6 +25,7 @@ type RootStackParamList = {
   Settings: undefined;
   Profile: { userId: string };
   SearchUsers: undefined;
+  EditSession: { sessionId: string; startTime: string; photoUrl?: string };
 };
 
 function SignInPrompt() {
@@ -75,7 +78,7 @@ function EmptyFeedState() {
 
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { isGuest } = useAuth();
+  const { isGuest, user } = useAuth();
   const {
     feed,
     feedLoading,
@@ -83,7 +86,12 @@ export default function FeedScreen() {
     hasMoreFeed,
     refreshFeed,
     loadMoreFeed,
+    removeFeedItem,
   } = useSocial();
+  const { deleteSession } = useClimbs();
+  const [actionMenuVisible, setActionMenuVisible] = useState(false);
+  const [actionMenuItem, setActionMenuItem] = useState<ActivityFeedItem | null>(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   if (isGuest) {
     return <SignInPrompt />;
@@ -93,8 +101,53 @@ export default function FeedScreen() {
     navigation.navigate('Profile', { userId });
   };
 
+  const handleMenuPress = (item: ActivityFeedItem) => {
+    setActionMenuItem(item);
+    setActionMenuVisible(true);
+  };
+
+  const handleCloseActionMenu = () => {
+    setActionMenuVisible(false);
+    setActionMenuItem(null);
+  };
+
+  const handleEditFromMenu = () => {
+    if (actionMenuItem?.sessionId) {
+      navigation.navigate('EditSession', {
+        sessionId: actionMenuItem.sessionId,
+        startTime: actionMenuItem.session?.startTime || actionMenuItem.createdAt,
+        photoUrl: actionMenuItem.session?.photoUrl,
+      });
+    }
+    handleCloseActionMenu();
+  };
+
+  const handleDeleteFromMenu = () => {
+    setActionMenuVisible(false);
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (actionMenuItem?.sessionId) {
+      deleteSession(actionMenuItem.sessionId);
+      removeFeedItem(actionMenuItem.sessionId);
+    }
+    setDeleteConfirmVisible(false);
+    setActionMenuItem(null);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmVisible(false);
+    setActionMenuItem(null);
+  };
+
   const renderItem = ({ item }: { item: ActivityFeedItem }) => (
-    <ActivityFeedCard item={item} onProfilePress={handleProfilePress} />
+    <ActivityFeedCard
+      item={item}
+      onProfilePress={handleProfilePress}
+      isOwnSession={item.userId === user?.id}
+      onMenuPress={handleMenuPress}
+    />
   );
 
   const renderFooter = () => {
@@ -156,6 +209,49 @@ export default function FeedScreen() {
           }
         />
       )}
+
+      <Modal
+        visible={actionMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseActionMenu}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleCloseActionMenu}>
+          <Pressable style={styles.actionMenuContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable style={styles.actionMenuItem} onPress={handleEditFromMenu}>
+              <Text style={styles.actionMenuText}>Edit Session</Text>
+            </Pressable>
+            <View style={styles.actionMenuDivider} />
+            <Pressable style={styles.actionMenuItem} onPress={handleDeleteFromMenu}>
+              <Text style={styles.actionMenuTextDanger}>Delete Session</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleCancelDelete}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Delete Session?</Text>
+            <Text style={styles.deleteWarningText}>
+              This will permanently delete this session and all of its climbs.
+            </Text>
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.modalCancelButton} onPress={handleCancelDelete}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalDeleteButton} onPress={handleConfirmDelete}>
+                <Text style={styles.modalDeleteText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -300,5 +396,86 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Action menu & delete confirmation modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  actionMenuContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 280,
+    overflow: 'hidden',
+  },
+  actionMenuItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  actionMenuText: {
+    fontSize: 17,
+    color: colors.text,
+  },
+  actionMenuTextDanger: {
+    fontSize: 17,
+    color: colors.danger,
+  },
+  actionMenuDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  deleteWarningText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  modalDeleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+  },
+  modalDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

@@ -11,6 +11,8 @@ import { getGradeGradientColors } from '../utils/gradeColors';
 interface ActivityFeedCardProps {
   item: ActivityFeedItem;
   onProfilePress: (userId: string) => void;
+  isOwnSession?: boolean;
+  onMenuPress?: (item: ActivityFeedItem) => void;
 }
 
 function formatSessionTimestamp(timestamp: string): string {
@@ -87,7 +89,7 @@ function buildPills(grades: GradeCount[]): { grade: string; count: number; varia
   return pills;
 }
 
-export default function ActivityFeedCard({ item, onProfilePress }: ActivityFeedCardProps) {
+export default function ActivityFeedCard({ item, onProfilePress, isOwnSession, onMenuPress }: ActivityFeedCardProps) {
   const { settings } = useSettings();
   const { user, metadata, createdAt, climbs } = item;
 
@@ -116,11 +118,28 @@ export default function ActivityFeedCard({ item, onProfilePress }: ActivityFeedC
             <Text style={styles.timestamp}>{formatSessionTimestamp(item.session?.startTime || createdAt)}</Text>
           </View>
         </Pressable>
+        {isOwnSession && onMenuPress && (
+          <Pressable
+            style={styles.menuButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onMenuPress(item);
+            }}
+            hitSlop={12}
+          >
+            <Text style={styles.menuButtonText}>•••</Text>
+          </Pressable>
+        )}
       </View>
+
+      {/* Session Photo */}
+      {item.session?.photoUrl && (
+        <Image source={{ uri: item.session.photoUrl }} style={styles.sessionPhoto} />
+      )}
 
       {/* Session Summary */}
       <View style={styles.summaryContainer}>
-        <Text style={styles.activityTitle}>Climbing Session</Text>
+        <Text style={styles.activityTitle}>{item.session?.name || 'Climbing Session'}</Text>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -209,6 +228,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  sessionPhoto: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -247,7 +271,7 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     padding: 16,
-    paddingTop: 0,
+    paddingTop: 12,
   },
   activityTitle: {
     fontSize: 17,
@@ -316,5 +340,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  menuButton: {
+    padding: 8,
+    marginLeft: 8,
+    marginRight: -4,
+  },
+  menuButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 2,
   },
 });

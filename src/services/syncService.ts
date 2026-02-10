@@ -8,7 +8,9 @@ interface DbSession {
   start_time: string;
   end_time: string | null;
   name: string | null;
+  photo_url: string | null;
   paused_duration: number | null;
+  is_public: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -33,7 +35,9 @@ function toDbSession(session: Session, userId: string): Omit<DbSession, 'created
     start_time: session.startTime,
     end_time: session.endTime || null,
     name: session.name || null,
+    photo_url: session.photoUrl || null,
     paused_duration: session.pausedDuration || null,
+    is_public: session.isPublic !== false,
   };
 }
 
@@ -44,7 +48,9 @@ function fromDbSession(dbSession: DbSession): Session {
     startTime: dbSession.start_time,
     endTime: dbSession.end_time || undefined,
     name: dbSession.name || undefined,
+    photoUrl: dbSession.photo_url || undefined,
     pausedDuration: dbSession.paused_duration || undefined,
+    isPublic: dbSession.is_public,
   };
 }
 

@@ -35,6 +35,9 @@ interface SocialContextType {
   getFollowing: (userId: string) => Promise<Profile[]>;
   updateProfile: (updates: { firstName?: string; lastName?: string }) => Promise<boolean>;
   uploadAvatar: (base64Data: string) => Promise<string | null>;
+  uploadSessionPhoto: (sessionId: string, base64Data: string) => Promise<string | null>;
+  deleteSessionPhoto: (sessionId: string) => Promise<boolean>;
+  removeFeedItem: (sessionId: string) => void;
   getUserSessions: typeof socialService.getUserSessions;
   getSessionClimbs: typeof socialService.getSessionClimbs;
 }
@@ -166,6 +169,27 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const uploadSessionPhoto = useCallback(
+    async (sessionId: string, base64Data: string): Promise<string | null> => {
+      return socialService.uploadSessionPhoto(sessionId, base64Data);
+    },
+    []
+  );
+
+  const removeFeedItem = useCallback(
+    (sessionId: string) => {
+      setFeed((prev) => prev.filter((item) => item.sessionId !== sessionId));
+    },
+    []
+  );
+
+  const deleteSessionPhoto = useCallback(
+    async (sessionId: string): Promise<boolean> => {
+      return socialService.deleteSessionPhoto(sessionId);
+    },
+    []
+  );
+
   return (
     <SocialContext.Provider
       value={{
@@ -184,6 +208,9 @@ export function SocialProvider({ children }: { children: ReactNode }) {
         getFollowing: socialService.getFollowing.bind(socialService),
         updateProfile,
         uploadAvatar,
+        uploadSessionPhoto,
+        deleteSessionPhoto,
+        removeFeedItem,
         getUserSessions: socialService.getUserSessions.bind(socialService),
         getSessionClimbs: socialService.getSessionClimbs.bind(socialService),
       }}

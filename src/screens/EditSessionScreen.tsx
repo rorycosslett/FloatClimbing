@@ -7,15 +7,23 @@ import {
   StyleSheet,
   TextInput,
   Modal,
+  Image,
+  Alert,
+  ActivityIndicator,
+  Switch,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, NavigatorScreenParams } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast, { BaseToastProps } from 'react-native-toast-message';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
+import { useSocial } from '../context/SocialContext';
 import { getGradesForSettings } from '../data/grades';
 import { getSecondaryGrade } from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
@@ -23,10 +31,26 @@ import { ClimbType } from '../types';
 import { colors } from '../theme/colors';
 import { SwipeableClimbPill } from '../components/SwipeableClimbPill';
 
+type TabParamList = {
+  Log: undefined;
+  You: undefined;
+  Home: undefined;
+};
+
+type RootStackParamList = {
+  Main: NavigatorScreenParams<TabParamList>;
+  EditSession: {
+    sessionId: string;
+    startTime: string;
+    photoUrl?: string;
+  };
+};
+
 type EditSessionRouteParams = {
   EditSession: {
     sessionId: string;
     startTime: string;
+    photoUrl?: string;
   };
 };
 
@@ -59,16 +83,23 @@ const modalToastStyles = StyleSheet.create({
 });
 
 export default function EditSessionScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<EditSessionRouteParams, 'EditSession'>>();
-  const { sessionId, startTime } = route.params;
+  const { sessionId, startTime, photoUrl: initialPhotoUrl } = route.params;
   const { settings } = useSettings();
-  const { climbs, deleteClimb, addClimbToSession, getSessionName, renameSession } = useClimbs();
+  const { climbs, deleteClimb, addClimbToSession, getSessionName, renameSession, updateSessionPhotoUrl, updateSessionPrivacy, deleteSession, sessionMetadata } = useClimbs();
+  const { uploadSessionPhoto, deleteSessionPhoto } = useSocial();
 
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const [sessionName, setSessionName] = useState(getSessionName(sessionId, startTime));
   const [isEditingName, setIsEditingName] = useState(false);
   const [showAddClimbModal, setShowAddClimbModal] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [isPublic, setIsPublic] = useState<boolean>(
+    sessionMetadata[sessionId]?.isPublic !== false
+  );
 
   const sessionClimbs = climbs
     .filter((c) => c.sessionId === sessionId)
@@ -100,41 +131,176 @@ export default function EditSessionScreen() {
     setIsEditingName(false);
   };
 
+  const handleTogglePrivacy = (value: boolean) => {
+    setIsPublic(value);
+    updateSessionPrivacy(sessionId, value);
+  };
+
+  const handlePickPhoto = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please allow access to your photo library to add a session photo.'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    setPhotoUploading(true);
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 1080 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      if (!manipulated.base64) {
+        Alert.alert('Error', 'Failed to process photo. Please try again.');
+        return;
+      }
+
+      const publicUrl = await uploadSessionPhoto(sessionId, manipulated.base64);
+      if (publicUrl) {
+        setPhotoUrl(publicUrl);
+        updateSessionPhotoUrl(sessionId, publicUrl);
+        Toast.show({
+          type: 'success',
+          text1: 'Photo uploaded',
+          visibilityTime: 2000,
+        });
+      } else {
+        Alert.alert('Error', 'Failed to upload photo. Please try again.');
+      }
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      Alert.alert('Error', 'Failed to upload photo. Please try again.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setPhotoUploading(true);
+    try {
+      const success = await deleteSessionPhoto(sessionId);
+      if (success) {
+        setPhotoUrl(null);
+        updateSessionPhotoUrl(sessionId, null);
+        Toast.show({
+          type: 'success',
+          text1: 'Photo removed',
+          visibilityTime: 2000,
+        });
+      } else {
+        Alert.alert('Error', 'Failed to remove photo. Please try again.');
+      }
+    } catch (error) {
+      console.error('Photo delete error:', error);
+      Alert.alert('Error', 'Failed to remove photo. Please try again.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   const handleBack = () => {
-    navigation.goBack();
+    navigation.navigate('Main', { screen: 'You' });
+  };
+
+  const handleDeleteSession = () => {
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = () => {
+    deleteSession(sessionId);
+    if (photoUrl) {
+      deleteSessionPhoto(sessionId).catch(console.error);
+    }
+    setDeleteConfirmVisible(false);
+    navigation.navigate('Main', { screen: 'You' });
+    Toast.show({
+      type: 'success',
+      text1: 'Session deleted',
+      visibilityTime: 2000,
+    });
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmVisible(false);
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={handleBack} style={styles.backButton} hitSlop={12}>
-          <Ionicons name="chevron-back" size={28} color={colors.text} />
-        </Pressable>
-        <View style={styles.headerTitleContainer}>
-          {isEditingName ? (
-            <TextInput
-              style={styles.headerTitleInput}
-              value={sessionName}
-              onChangeText={setSessionName}
-              onBlur={handleSaveName}
-              onSubmitEditing={handleSaveName}
-              autoFocus
-              maxLength={50}
-              selectTextOnFocus
-            />
-          ) : (
-            <Pressable onPress={() => setIsEditingName(true)} style={styles.titlePressable}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {sessionName}
-              </Text>
-              <Ionicons name="pencil" size={16} color={colors.textSecondary} style={styles.editIcon} />
-            </Pressable>
-          )}
-        </View>
-        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Edit Session</Text>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {/* Session name section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Session Name</Text>
+          <View style={styles.sessionNameContainer}>
+            {isEditingName ? (
+              <TextInput
+                style={styles.sessionNameInput}
+                value={sessionName}
+                onChangeText={setSessionName}
+                onBlur={handleSaveName}
+                onSubmitEditing={handleSaveName}
+                autoFocus
+                maxLength={50}
+                selectTextOnFocus
+              />
+            ) : (
+              <Pressable onPress={() => setIsEditingName(true)} style={styles.sessionNamePressable}>
+                <Text style={styles.sessionNameText} numberOfLines={1}>
+                  {sessionName}
+                </Text>
+                <Ionicons name="pencil" size={16} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {/* Photo section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Photo</Text>
+          <View style={styles.photoContainer}>
+            {photoUploading ? (
+              <View style={styles.photoPlaceholder}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : photoUrl ? (
+              <View style={styles.photoPreviewContainer}>
+                <Image source={{ uri: photoUrl }} style={styles.photoPreview} />
+                <View style={styles.photoActions}>
+                  <Pressable style={styles.photoActionBtn} onPress={handlePickPhoto}>
+                    <Ionicons name="swap-horizontal" size={16} color={colors.text} />
+                    <Text style={styles.photoActionText}>Replace</Text>
+                  </Pressable>
+                  <Pressable style={styles.photoActionBtn} onPress={handleRemovePhoto}>
+                    <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                    <Text style={[styles.photoActionText, { color: colors.danger }]}>Remove</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable style={styles.photoPlaceholder} onPress={handlePickPhoto}>
+                <Ionicons name="camera-outline" size={28} color={colors.textMuted} />
+                <Text style={styles.photoPlaceholderText}>Add a session photo</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Current Climbs ({sessionClimbs.length})
@@ -159,8 +325,48 @@ export default function EditSessionScreen() {
             style={styles.addClimbButton}
             onPress={() => setShowAddClimbModal(true)}
           >
-            <Ionicons name="add" size={20} color="#fff" />
+            <Ionicons name="add" size={20} color={colors.primary} />
             <Text style={styles.addClimbButtonText}>Add Climb</Text>
+          </Pressable>
+        </View>
+
+        {/* Privacy section */}
+        <View style={styles.section}>
+          <View style={styles.privacyRow}>
+            <View style={styles.privacyInfo}>
+              <Ionicons
+                name={isPublic ? 'globe-outline' : 'lock-closed-outline'}
+                size={20}
+                color={isPublic ? colors.primary : colors.textSecondary}
+              />
+              <View>
+                <Text style={styles.privacyLabel}>
+                  {isPublic ? 'Public' : 'Private'}
+                </Text>
+                <Text style={styles.privacyDescription}>
+                  {isPublic
+                    ? "Visible on followers' feeds"
+                    : 'Only visible in your history'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isPublic}
+              onValueChange={handleTogglePrivacy}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#ffffff"
+            />
+          </View>
+        </View>
+
+        <View style={styles.bottomActions}>
+          <Pressable style={styles.deleteSessionButton} onPress={handleDeleteSession}>
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            <Text style={styles.deleteSessionText}>Delete Session</Text>
+          </Pressable>
+          <Pressable style={styles.saveSessionButton} onPress={handleBack}>
+            <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+            <Text style={styles.saveSessionText}>Save Session</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -247,6 +453,25 @@ export default function EditSessionScreen() {
         </SafeAreaView>
         <Toast config={modalToastConfig} />
       </Modal>
+
+      <Modal visible={deleteConfirmVisible} transparent animationType="fade" onRequestClose={handleCancelDelete}>
+        <Pressable style={styles.deleteModalOverlay} onPress={handleCancelDelete}>
+          <Pressable style={styles.deleteModalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.deleteModalTitle}>Delete Session?</Text>
+            <Text style={styles.deleteWarningText}>
+              This will permanently delete this session and all of its climbs.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <Pressable style={styles.deleteModalCancelButton} onPress={handleCancelDelete}>
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.deleteModalDeleteButton} onPress={handleConfirmDelete}>
+                <Text style={styles.deleteModalDeleteText}>Delete</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -257,31 +482,35 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitleContainer: {
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  titlePressable: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
     color: colors.text,
   },
-  headerTitleInput: {
+  sessionNameContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  sessionNamePressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sessionNameText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  sessionNameInput: {
     fontSize: 17,
     fontWeight: '600',
     color: colors.text,
@@ -289,12 +518,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-  },
-  editIcon: {
-    marginLeft: 6,
-  },
-  headerSpacer: {
-    width: 36,
   },
   typeSelector: {
     flexDirection: 'row',
@@ -444,15 +667,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.primary,
     marginHorizontal: 16,
     marginVertical: 16,
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderRadius: 10,
     gap: 8,
   },
   addClimbButtonText: {
-    color: '#fff',
+    color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -482,5 +706,165 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  privacyInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  privacyLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  privacyDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  photoContainer: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  photoPlaceholder: {
+    height: 100,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  photoPlaceholderText: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  photoPreviewContainer: {
+    gap: 12,
+  },
+  photoPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  photoActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  photoActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  bottomActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  deleteSessionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    gap: 8,
+  },
+  deleteSessionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.danger,
+  },
+  saveSessionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+  },
+  saveSessionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  deleteModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  deleteWarningText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  deleteModalCancelText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  deleteModalDeleteButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+  },
+  deleteModalDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

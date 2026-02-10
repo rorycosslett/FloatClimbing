@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,7 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type RootStackParamList = {
   Main: undefined;
   Settings: undefined;
-  EditSession: { sessionId: string; startTime: string };
+  EditSession: { sessionId: string; startTime: string; photoUrl?: string };
 };
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -148,10 +149,10 @@ function TypeGradeSection({
 export default function HistoryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { settings } = useSettings();
-  const { climbs, deleteSession, isLoading, getSessionName } = useClimbs();
+  const { climbs, deleteSession, isLoading, getSessionName, sessionMetadata } = useClimbs();
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
-  const [actionMenuSession, setActionMenuSession] = useState<{ id: string; startTime: string } | null>(null);
+  const [actionMenuSession, setActionMenuSession] = useState<{ id: string; startTime: string; photoUrl?: string } | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   const toggleGradeExpand = (sessionId: string, type: ClimbType) => {
@@ -167,8 +168,8 @@ export default function HistoryScreen() {
     });
   };
 
-  const handleOpenActionMenu = (sessionId: string, startTime: string) => {
-    setActionMenuSession({ id: sessionId, startTime });
+  const handleOpenActionMenu = (sessionId: string, startTime: string, photoUrl?: string) => {
+    setActionMenuSession({ id: sessionId, startTime, photoUrl });
     setActionMenuVisible(true);
   };
 
@@ -182,6 +183,7 @@ export default function HistoryScreen() {
       navigation.navigate('EditSession', {
         sessionId: actionMenuSession.id,
         startTime: actionMenuSession.startTime,
+        photoUrl: actionMenuSession.photoUrl,
       });
     }
     handleCloseActionMenu();
@@ -218,19 +220,6 @@ export default function HistoryScreen() {
     );
   }
 
-  if (climbs.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.title}>History</Text>
-        </View>
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No climbs logged yet</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // Group climbs by session (flat list, no date grouping)
   const sessionClimbs: Record<string, GroupedClimb[]> = {};
   climbs.forEach((climb, index) => {
@@ -238,7 +227,7 @@ export default function HistoryScreen() {
     sessionClimbs[climb.sessionId].push({ ...climb, index });
   });
 
-  // Build session data
+  // Build session data from climbs
   const sessions: SessionData[] = Object.keys(sessionClimbs)
     .map((sessionId) => {
       const sClimbs = sessionClimbs[sessionId].sort(
@@ -257,9 +246,42 @@ export default function HistoryScreen() {
         endTime,
         durationMs: Math.max(...times) - Math.min(...times),
         gradesByType: aggregateGradesByType(sClimbs),
+        photoUrl: sessionMetadata[sessionId]?.photoUrl,
       };
-    })
-    .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+    });
+
+  // Add empty sessions from metadata (sessions with no climbs)
+  const sessionIdsWithClimbs = new Set(Object.keys(sessionClimbs));
+  Object.entries(sessionMetadata).forEach(([sessionId, meta]) => {
+    if (!sessionIdsWithClimbs.has(sessionId) && meta.startTime && meta.endTime) {
+      sessions.push({
+        id: sessionId,
+        climbs: [],
+        sends: 0,
+        attempts: 0,
+        startTime: meta.startTime,
+        endTime: meta.endTime,
+        durationMs: new Date(meta.endTime).getTime() - new Date(meta.startTime).getTime(),
+        gradesByType: { boulder: [], sport: [], trad: [] },
+        photoUrl: meta.photoUrl,
+      });
+    }
+  });
+
+  sessions.sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+
+  if (sessions.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <Text style={styles.title}>History</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No sessions logged yet</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const hasGrades = (session: SessionData) =>
     session.gradesByType.boulder.length > 0 ||
@@ -288,6 +310,7 @@ export default function HistoryScreen() {
               onPress={() => navigation.navigate('EditSession', {
                 sessionId: session.id,
                 startTime: session.startTime,
+                photoUrl: session.photoUrl,
               })}
             >
               {/* Header: Title and date/time */}
@@ -300,7 +323,7 @@ export default function HistoryScreen() {
                     style={styles.menuButton}
                     onPress={(e) => {
                       e.stopPropagation();
-                      handleOpenActionMenu(session.id, session.startTime);
+                      handleOpenActionMenu(session.id, session.startTime, session.photoUrl);
                     }}
                     hitSlop={12}
                   >
@@ -311,6 +334,10 @@ export default function HistoryScreen() {
                   {formatSessionDate(session.startTime)} at {formatTime(session.startTime)} · {formatDuration(session.durationMs)}
                 </Text>
               </View>
+
+              {session.photoUrl && (
+                <Image source={{ uri: session.photoUrl }} style={styles.sessionPhoto} />
+              )}
 
               {/* Stats row */}
               <View style={styles.statsRow}>
@@ -456,6 +483,11 @@ const styles = StyleSheet.create({
   cardHeader: {
     padding: 20,
     paddingBottom: 8,
+  },
+  sessionPhoto: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
   },
   cardTitleSection: {
     flexDirection: 'row',
@@ -670,6 +702,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
+    paddingTop: 12,
     paddingBottom: 4,
   },
   sendsStat: {

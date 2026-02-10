@@ -27,12 +27,18 @@ export interface Session {
   startTime: string;
   endTime?: string;
   name?: string;
+  photoUrl?: string;
   pausedDuration?: number; // Accumulated pause time in milliseconds
   pausedAt?: string; // ISO timestamp when session was paused (null if running)
+  isPublic?: boolean; // Per-session privacy (undefined treated as true)
 }
 
 export interface SessionMetadata {
   name?: string;
+  photoUrl?: string;
+  startTime?: string;
+  endTime?: string;
+  isPublic?: boolean; // Per-session privacy (undefined treated as true)
 }
 
 export interface Achievement {
@@ -67,6 +73,7 @@ export interface SessionData {
   endTime: string;
   durationMs: number;
   gradesByType: TypeGradeBreakdown;
+  photoUrl?: string;
 }
 
 export interface SessionSummary {

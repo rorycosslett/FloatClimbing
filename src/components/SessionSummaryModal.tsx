@@ -9,8 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { SessionSummary, ClimbType, GradeCount, Climb, GradeSettings } from '../types';
 import { colors } from '../theme/colors';
 import { generateSessionName } from '../utils/sessionUtils';
@@ -22,9 +27,9 @@ interface SessionSummaryModalProps {
   visible: boolean;
   summary: SessionSummary | null;
   isPaused?: boolean;
-  onDismiss: (name?: string) => void;
+  onDismiss: (name?: string, photoBase64?: string) => void;
   onResume?: (name?: string) => void;
-  onFinish?: (name?: string) => void;
+  onFinish?: (name?: string, photoBase64?: string) => void;
 }
 
 function formatDuration(ms: number): string {
@@ -123,12 +128,17 @@ export function SessionSummaryModal({
   const { settings } = useSettings();
   const { sessionMetadata } = useClimbs();
   const [sessionName, setSessionName] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
 
   // Load the previously saved name when the modal opens
   useEffect(() => {
     if (visible && summary?.sessionId) {
       const savedName = sessionMetadata[summary.sessionId]?.name || '';
       setSessionName(savedName);
+      setPhotoUri(null);
+      setPhotoBase64(null);
     }
   }, [visible, summary?.sessionId, sessionMetadata]);
 
@@ -141,22 +151,72 @@ export function SessionSummaryModal({
     summary.gradesByType.sport.length > 0 ||
     summary.gradesByType.trad.length > 0;
 
+  const handlePickPhoto = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please allow access to your photo library to add a session photo.'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    setPhotoProcessing(true);
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 1080 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      if (manipulated.base64) {
+        setPhotoUri(manipulated.uri);
+        setPhotoBase64(manipulated.base64);
+      }
+    } catch (error) {
+      console.error('Photo processing error:', error);
+      Alert.alert('Error', 'Failed to process photo. Please try again.');
+    } finally {
+      setPhotoProcessing(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoUri(null);
+    setPhotoBase64(null);
+  };
+
   const handleDismiss = () => {
     const nameToSave = sessionName.trim() || undefined;
-    onDismiss(nameToSave);
+    onDismiss(nameToSave, photoBase64 || undefined);
     setSessionName('');
+    setPhotoUri(null);
+    setPhotoBase64(null);
   };
 
   const handleResume = () => {
     const nameToSave = sessionName.trim() || undefined;
     onResume?.(nameToSave);
     setSessionName('');
+    setPhotoUri(null);
+    setPhotoBase64(null);
   };
 
   const handleFinish = () => {
     const nameToSave = sessionName.trim() || undefined;
-    onFinish?.(nameToSave);
+    onFinish?.(nameToSave, photoBase64 || undefined);
     setSessionName('');
+    setPhotoUri(null);
+    setPhotoBase64(null);
   };
 
   return (
@@ -189,6 +249,27 @@ export function SessionSummaryModal({
             <Text style={styles.cardSubtitle}>
               {formatSessionDate(summary.startTime)} at {formatTime(summary.startTime)} · {formatDuration(summary.duration)}
             </Text>
+          </View>
+
+          {/* Photo section */}
+          <View style={styles.photoSection}>
+            {photoProcessing ? (
+              <View style={styles.photoPlaceholder}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : photoUri ? (
+              <View style={styles.photoPreviewContainer}>
+                <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                <Pressable style={styles.photoRemoveBtn} onPress={handleRemovePhoto}>
+                  <Ionicons name="close-circle" size={24} color="#fff" />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable style={styles.photoPlaceholder} onPress={handlePickPhoto}>
+                <Ionicons name="camera-outline" size={24} color={colors.textMuted} />
+                <Text style={styles.photoPlaceholderText}>Add Photo</Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Stats row */}
@@ -296,6 +377,43 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  photoSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  photoPlaceholder: {
+    height: 80,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  photoPlaceholderText: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  photoPreviewContainer: {
+    position: 'relative',
+  },
+  photoPreview: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+  },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   statsRow: {
     flexDirection: 'row',

@@ -50,6 +50,8 @@ interface DbSession {
   end_time: string | null;
   name: string | null;
   paused_duration: number | null;
+  photo_url: string | null;
+  is_public: boolean;
 }
 
 interface DbClimb {
@@ -94,7 +96,9 @@ function fromDbSession(db: DbSession): Session {
     startTime: db.start_time,
     endTime: db.end_time || undefined,
     name: db.name || undefined,
+    photoUrl: db.photo_url || undefined,
     pausedDuration: db.paused_duration || undefined,
+    isPublic: db.is_public,
   };
 }
 
@@ -257,6 +261,77 @@ export class SocialService {
     }
 
     return publicUrl;
+  }
+
+  async uploadSessionPhoto(sessionId: string, base64Data: string): Promise<string | null> {
+    if (!this.userId) return null;
+
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const filePath = `${this.userId}/${sessionId}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('session-photos')
+      .upload(filePath, bytes.buffer, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('Error uploading session photo:', uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('session-photos')
+      .getPublicUrl(filePath);
+
+    const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+    const { error: updateError } = await supabase
+      .from('sessions')
+      .update({ photo_url: publicUrl })
+      .eq('id', sessionId)
+      .eq('user_id', this.userId);
+
+    if (updateError) {
+      console.error('Error updating session photo URL:', updateError);
+      return null;
+    }
+
+    return publicUrl;
+  }
+
+  async deleteSessionPhoto(sessionId: string): Promise<boolean> {
+    if (!this.userId) return false;
+
+    const filePath = `${this.userId}/${sessionId}.jpg`;
+
+    const { error: deleteError } = await supabase.storage
+      .from('session-photos')
+      .remove([filePath]);
+
+    if (deleteError) {
+      console.error('Error deleting session photo:', deleteError);
+      return false;
+    }
+
+    const { error: updateError } = await supabase
+      .from('sessions')
+      .update({ photo_url: null })
+      .eq('id', sessionId)
+      .eq('user_id', this.userId);
+
+    if (updateError) {
+      console.error('Error clearing session photo URL:', updateError);
+      return false;
+    }
+
+    return true;
   }
 
   async searchUsers(query: string, limit = 20): Promise<ProfileWithStats[]> {
@@ -444,6 +519,44 @@ export class SocialService {
 
     if (error) {
       console.error('Error creating activity item:', error);
+      return false;
+    }
+
+    return true;
+  }
+
+  // ============================================
+  // SESSION PRIVACY
+  // ============================================
+
+  async updateSessionPrivacy(sessionId: string, isPublic: boolean): Promise<boolean> {
+    if (!this.userId) return false;
+
+    const { error } = await supabase
+      .from('sessions')
+      .update({ is_public: isPublic })
+      .eq('id', sessionId)
+      .eq('user_id', this.userId);
+
+    if (error) {
+      console.error('Error updating session privacy:', error);
+      return false;
+    }
+
+    return true;
+  }
+
+  async deleteActivityItemBySession(sessionId: string): Promise<boolean> {
+    if (!this.userId) return false;
+
+    const { error } = await supabase
+      .from('activity_feed_items')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('user_id', this.userId);
+
+    if (error) {
+      console.error('Error deleting activity item:', error);
       return false;
     }
 
