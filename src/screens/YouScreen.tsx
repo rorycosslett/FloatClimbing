@@ -778,6 +778,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     resizeMode: 'cover',
+    marginBottom: 12,
   },
   cardTitleSection: {
     flexDirection: 'row',

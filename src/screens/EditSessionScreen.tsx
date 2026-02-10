@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -93,6 +93,16 @@ export default function EditSessionScreen() {
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const [sessionName, setSessionName] = useState(getSessionName(sessionId, startTime));
   const [isEditingName, setIsEditingName] = useState(false);
+
+  // Sync session name from metadata when it updates (e.g. from pause modal)
+  useEffect(() => {
+    if (!isEditingName) {
+      const metadataName = sessionMetadata[sessionId]?.name;
+      if (metadataName) {
+        setSessionName(metadataName);
+      }
+    }
+  }, [sessionMetadata[sessionId]?.name]);
   const [showAddClimbModal, setShowAddClimbModal] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
   const [photoUploading, setPhotoUploading] = useState(false);
