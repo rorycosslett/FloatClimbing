@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
-import { Climb, ClimbType, GradeSettings, GradeCount, TypeGradeBreakdown, GroupedClimb, SessionData } from '../types';
+import { Climb, ClimbType, GradeSettings, GradeCount, GroupedClimb, SessionData } from '../types';
 import { colors } from '../theme/colors';
 import { getDisplayGrade, getNormalizedGradeIndex, aggregateGradesByType } from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
@@ -332,7 +332,7 @@ function HistoryContent() {
                   onToggleExpand={() => setExpandedGrades((prev) => {
                     const next = new Set(prev);
                     const key = `${session.id}-boulder`;
-                    next.has(key) ? next.delete(key) : next.add(key);
+                    if (next.has(key)) { next.delete(key); } else { next.add(key); }
                     return next;
                   })}
                   gradeSettings={settings.grades}
@@ -344,7 +344,7 @@ function HistoryContent() {
                   onToggleExpand={() => setExpandedGrades((prev) => {
                     const next = new Set(prev);
                     const key = `${session.id}-sport`;
-                    next.has(key) ? next.delete(key) : next.add(key);
+                    if (next.has(key)) { next.delete(key); } else { next.add(key); }
                     return next;
                   })}
                   gradeSettings={settings.grades}
@@ -356,7 +356,7 @@ function HistoryContent() {
                   onToggleExpand={() => setExpandedGrades((prev) => {
                     const next = new Set(prev);
                     const key = `${session.id}-trad`;
-                    next.has(key) ? next.delete(key) : next.add(key);
+                    if (next.has(key)) { next.delete(key); } else { next.add(key); }
                     return next;
                   })}
                   gradeSettings={settings.grades}

@@ -15,9 +15,9 @@ export default function LoginScreen() {
     setError(null);
     try {
       await signInWithGoogle();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Google sign-in error:', e);
-      setError(e?.message || 'Failed to sign in with Google');
+      setError(e instanceof Error ? e.message : 'Failed to sign in with Google');
     } finally {
       setIsLoading(null);
     }
@@ -28,9 +28,9 @@ export default function LoginScreen() {
     setError(null);
     try {
       await signInWithApple();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Apple sign-in error:', e);
-      setError(e?.message || 'Failed to sign in with Apple');
+      setError(e instanceof Error ? e.message : 'Failed to sign in with Apple');
     } finally {
       setIsLoading(null);
     }
@@ -41,6 +41,7 @@ export default function LoginScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             source={require('../../assets/largelogo.png')}
             style={styles.logo}
             resizeMode="contain"

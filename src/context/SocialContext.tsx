@@ -62,6 +62,7 @@ export function SocialProvider({ children }: { children: ReactNode }) {
       setFeedCursor(null);
       setHasMoreFeed(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const loadCurrentProfile = async () => {

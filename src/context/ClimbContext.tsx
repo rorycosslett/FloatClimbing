@@ -113,6 +113,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       hasInitialSynced.current = true;
       syncData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading]);
 
   const syncData = useCallback(async () => {
@@ -211,6 +212,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     saveClimbs(updatedClimbs);
 
     // Remove session metadata
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { [sessionId]: _removed, ...remainingMetadata } = sessionMetadata;
     setSessionMetadata(remainingMetadata);
     saveSessionMetadata(remainingMetadata);

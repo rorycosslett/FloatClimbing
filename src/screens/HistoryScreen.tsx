@@ -20,9 +20,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
-import { Climb, ClimbType, GradeSettings, GradeCount, TypeGradeBreakdown, GroupedClimb, SessionData } from '../types';
+import { Climb, ClimbType, GradeSettings, GradeCount, GroupedClimb, SessionData } from '../types';
 import { colors } from '../theme/colors';
-import { getDisplayGrade, getNormalizedGradeIndex, aggregateGradesByType } from '../utils/gradeUtils';
+import { getDisplayGrade, aggregateGradesByType } from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
 
 function formatTime(timestamp: string): string {

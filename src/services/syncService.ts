@@ -228,7 +228,7 @@ export class SyncService {
         try {
           await this.upsertSession(session);
           uploadedSessions.push(session);
-        } catch (err) {
+        } catch {
           console.warn('Skipping session upload (may belong to another account):', session.id);
         }
       }

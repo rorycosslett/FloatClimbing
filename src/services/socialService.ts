@@ -79,7 +79,7 @@ function fromDbProfile(db: DbProfile): Profile {
   };
 }
 
-function fromDbFollow(db: DbFollow): Follow {
+function _fromDbFollow(db: DbFollow): Follow {
   return {
     id: db.id,
     followerId: db.follower_id,
@@ -335,8 +335,8 @@ export class SocialService {
     }
 
     return (data || [])
-      .map((row: any) => row.profiles)
-      .filter((p: DbProfile | null): p is DbProfile => p !== null)
+      .map((row: Record<string, unknown>) => row.profiles)
+      .filter((p: unknown): p is DbProfile => p !== null)
       .map(fromDbProfile);
   }
 
@@ -353,8 +353,8 @@ export class SocialService {
     }
 
     return (data || [])
-      .map((row: any) => row.profiles)
-      .filter((p: DbProfile | null): p is DbProfile => p !== null)
+      .map((row: Record<string, unknown>) => row.profiles)
+      .filter((p: unknown): p is DbProfile => p !== null)
       .map(fromDbProfile);
   }
 
@@ -393,10 +393,10 @@ export class SocialService {
 
     // Fetch climbs for each session
     const sessionIds = items
-      .map((item: any) => item.session_id)
+      .map((item: Record<string, unknown>) => item.session_id as string | null)
       .filter((id: string | null): id is string => id !== null);
 
-    let climbsMap = new Map<string, DbClimb[]>();
+    const climbsMap = new Map<string, DbClimb[]>();
     if (sessionIds.length > 0) {
       const { data: climbs } = await supabase
         .from('climbs')
@@ -413,12 +413,12 @@ export class SocialService {
       }
     }
 
-    const feedItems: ActivityFeedItem[] = items.map((item: any) =>
+    const feedItems: ActivityFeedItem[] = items.map((item: Record<string, unknown>) =>
       fromDbActivityFeedItem(
-        item,
-        item.profiles,
-        item.sessions,
-        item.session_id ? climbsMap.get(item.session_id) : undefined
+        item as unknown as DbActivityFeedItem,
+        item.profiles as unknown as DbProfile,
+        item.sessions as unknown as DbSession,
+        item.session_id ? climbsMap.get(item.session_id as string) : undefined
       )
     );
 
