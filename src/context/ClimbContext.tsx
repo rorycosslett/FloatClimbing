@@ -58,6 +58,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [sessionMetadata, setSessionMetadata] = useState<Record<string, SessionMetadata>>({});
   const hasInitialSynced = useRef(false);
+  const sessionSyncPromise = useRef<Promise<void>>(Promise.resolve());
 
   const LAST_USER_KEY = 'lastUserId';
 
@@ -191,9 +192,11 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     setClimbs(updated);
     saveClimbs(updated);
 
-    // Sync to cloud if authenticated
+    // Sync to cloud if authenticated (wait for session to be synced first)
     if (user) {
-      syncService.upsertClimb(newClimb).catch(console.error);
+      sessionSyncPromise.current.then(() => {
+        syncService.upsertClimb(newClimb).catch(console.error);
+      });
     }
   };
 
@@ -236,7 +239,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
     // Sync to cloud if authenticated
     if (user) {
-      syncService.upsertSession(session).catch(console.error);
+      sessionSyncPromise.current = syncService.upsertSession(session).catch(console.error).then(() => {});
     }
   };
 
@@ -330,21 +333,22 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         endTime,
         name: resolvedName,
       };
-      syncService.upsertSession(completedSession).catch(console.error);
-
-      // Create activity feed item for followers to see (only for public sessions)
-      const sessionIsPublic = sessionMetadata[activeSession.id]?.isPublic !== false;
-      if (sends.length > 0 && sessionIsPublic) {
-        socialService.createActivityItem(activeSession.id, {
-          totalClimbs: sessionClimbs.length,
-          sends: sends.length,
-          attempts: attempts.length,
-          duration,
-          maxBoulderGrade: maxGradeByType.boulder,
-          maxSportGrade: maxGradeByType.sport,
-          maxTradGrade: maxGradeByType.trad,
-        }).catch(console.error);
-      }
+      // Await session upsert before creating activity item (foreign key dependency)
+      syncService.upsertSession(completedSession).then(() => {
+        // Create activity feed item for followers to see (only for public sessions)
+        const sessionIsPublic = sessionMetadata[activeSession.id]?.isPublic !== false;
+        if (sends.length > 0 && sessionIsPublic) {
+          socialService.createActivityItem(activeSession.id, {
+            totalClimbs: sessionClimbs.length,
+            sends: sends.length,
+            attempts: attempts.length,
+            duration,
+            maxBoulderGrade: maxGradeByType.boulder,
+            maxSportGrade: maxGradeByType.sport,
+            maxTradGrade: maxGradeByType.trad,
+          }).catch(console.error);
+        }
+      }).catch(console.error);
     }
 
     setActiveSession(null);

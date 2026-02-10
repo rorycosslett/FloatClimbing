@@ -1,8 +1,8 @@
--- Session Privacy
+-- Session Privacy (idempotent)
 -- Adds per-session privacy control (public/private)
 
 -- Add is_public column to sessions, defaulting to true (existing sessions remain public)
-ALTER TABLE public.sessions ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT true;
 
 -- Update the RLS policy so followers only see public sessions
 DROP POLICY IF EXISTS "Users can view followed users sessions" ON public.sessions;
