@@ -114,13 +114,30 @@ export class SyncService {
   async upsertSession(session: Session): Promise<void> {
     if (!this.userId) return;
 
-    const { error } = await supabase
+    // Use insert + update fallback to avoid RLS conflicts with upsert
+    const dbSession = toDbSession(session, this.userId);
+    const { error: insertError } = await supabase
       .from('sessions')
-      .upsert(toDbSession(session, this.userId), { onConflict: 'id' });
+      .insert(dbSession);
 
-    if (error) {
-      console.error('Error upserting session:', error);
-      throw error;
+    if (insertError) {
+      // If row already exists (conflict on id), update instead
+      if (insertError.code === '23505') {
+        const { id: _id, user_id: _uid, ...updateFields } = dbSession;
+        const { error: updateError } = await supabase
+          .from('sessions')
+          .update(updateFields)
+          .eq('id', session.id)
+          .eq('user_id', this.userId);
+
+        if (updateError) {
+          console.error('Error updating session:', updateError);
+          throw updateError;
+        }
+      } else {
+        console.error('Error inserting session:', insertError);
+        throw insertError;
+      }
     }
   }
 
@@ -163,26 +180,50 @@ export class SyncService {
   async upsertClimb(climb: Climb): Promise<void> {
     if (!this.userId) return;
 
-    const { error } = await supabase
+    const dbClimb = toDbClimb(climb, this.userId);
+    const { error: insertError } = await supabase
       .from('climbs')
-      .upsert(toDbClimb(climb, this.userId), { onConflict: 'id' });
+      .insert(dbClimb);
 
-    if (error) {
-      console.error('Error upserting climb:', error);
-      throw error;
+    if (insertError) {
+      if (insertError.code === '23505') {
+        const { id: _id, user_id: _uid, ...updateFields } = dbClimb;
+        const { error: updateError } = await supabase
+          .from('climbs')
+          .update(updateFields)
+          .eq('id', climb.id)
+          .eq('user_id', this.userId);
+
+        if (updateError) {
+          console.error('Error updating climb:', updateError);
+          throw updateError;
+        }
+      } else {
+        console.error('Error inserting climb:', insertError);
+        throw insertError;
+      }
     }
   }
 
   async upsertClimbs(climbs: Climb[]): Promise<void> {
     if (!this.userId || climbs.length === 0) return;
 
-    const { error } = await supabase
+    // Insert all, then update any that already existed
+    const dbClimbs = climbs.map((c) => toDbClimb(c, this.userId!));
+    const { error: insertError } = await supabase
       .from('climbs')
-      .upsert(climbs.map((c) => toDbClimb(c, this.userId!)), { onConflict: 'id' });
+      .insert(dbClimbs);
 
-    if (error) {
-      console.error('Error upserting climbs:', error);
-      throw error;
+    if (insertError) {
+      if (insertError.code === '23505') {
+        // Some climbs already exist — fall back to one-by-one upsert
+        for (const climb of climbs) {
+          await this.upsertClimb(climb);
+        }
+      } else {
+        console.error('Error inserting climbs:', insertError);
+        throw insertError;
+      }
     }
   }
 
