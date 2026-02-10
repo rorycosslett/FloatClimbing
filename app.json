@@ -65,7 +65,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "The app needs access to your photos to set a profile picture."
+          "photosPermission": "The app needs access to your photos to set a profile picture or add session photos.",
+          "cameraPermission": false
         }
       ]
     ]
