@@ -17,10 +17,11 @@ import Toast, { BaseToastProps } from 'react-native-toast-message';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
 import { getGradesForSettings } from '../data/grades';
-import { getDisplayGrade, getSecondaryGrade } from '../utils/gradeUtils';
+import { getSecondaryGrade } from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
 import { ClimbType } from '../types';
 import { colors } from '../theme/colors';
+import { SwipeableClimbPill } from '../components/SwipeableClimbPill';
 
 type EditSessionRouteParams = {
   EditSession: {
@@ -56,13 +57,6 @@ const modalToastStyles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 export default function EditSessionScreen() {
   const navigation = useNavigation();
@@ -150,27 +144,14 @@ export default function EditSessionScreen() {
               <Text style={styles.emptyText}>No climbs in this session</Text>
             </View>
           ) : (
-            <View style={styles.climbsList}>
-              {sessionClimbs.map((climb, idx) => (
-                <View
+            <View style={styles.climbPillContainer}>
+              {sessionClimbs.map((climb) => (
+                <SwipeableClimbPill
                   key={climb.id}
-                  style={[
-                    styles.climbRow,
-                    idx === sessionClimbs.length - 1 && styles.climbRowLast,
-                  ]}
-                >
-                  <Text style={climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon}>
-                    {climb.status === 'attempt' ? '○' : '✓'}
-                  </Text>
-                  <Text style={styles.climbGrade}>{getDisplayGrade(climb, settings.grades)}</Text>
-                  {climb.type !== 'boulder' && (
-                    <Text style={styles.climbType}>({climb.type})</Text>
-                  )}
-                  <Text style={styles.climbTime}>{formatTime(climb.timestamp)}</Text>
-                  <Pressable onPress={() => handleDeleteClimb(climb.id)} hitSlop={8}>
-                    <Text style={styles.deleteBtn}>×</Text>
-                  </Pressable>
-                </View>
+                  climb={climb}
+                  gradeSettings={settings.grades}
+                  onDelete={() => handleDeleteClimb(climb.id)}
+                />
               ))}
             </View>
           )}
@@ -228,14 +209,16 @@ export default function EditSessionScreen() {
                 <View key={grade} style={styles.gradeRow}>
                   <Pressable
                     style={({ pressed }) => [
-                      styles.attemptPill,
+                      styles.attemptPillWrapper,
                       pressed && styles.attemptPillPressed,
                     ]}
                     onPress={() => handleAddClimb(grade, 'attempt')}
                   >
-                    <View style={styles.pillContent}>
-                      <Text style={styles.pillText}>{grade}</Text>
-                      <Text style={styles.pillSecondaryText}>{secondaryGrade}</Text>
+                    <View style={styles.attemptPillInner}>
+                      <View style={styles.pillContent}>
+                        <Text style={styles.pillText}>{grade}</Text>
+                        <Text style={styles.pillSecondaryText}>{secondaryGrade}</Text>
+                      </View>
                     </View>
                   </Pressable>
                   <Pressable
@@ -375,55 +358,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textMuted,
   },
-  climbsList: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  climbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
+  climbPillContainer: {
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  climbRowLast: {
-    borderBottomWidth: 0,
-  },
-  sendIcon: {
-    color: colors.primary,
-    fontSize: 16,
-    marginRight: 10,
-    width: 20,
-    textAlign: 'center',
-  },
-  attemptIcon: {
-    color: colors.warning,
-    fontSize: 16,
-    marginRight: 10,
-    width: 20,
-    textAlign: 'center',
-  },
-  climbGrade: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  climbType: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginLeft: 8,
-  },
-  climbTime: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginLeft: 'auto',
-  },
-  deleteBtn: {
-    color: colors.danger,
-    fontSize: 22,
-    marginLeft: 12,
-    padding: 4,
+    paddingBottom: 8,
+    gap: 8,
   },
   columnHeaders: {
     flexDirection: 'row',
@@ -459,19 +397,22 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sendPillGradient: {
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 15,
     alignItems: 'center',
   },
   sendPillPressed: {
     opacity: 0.8,
   },
-  attemptPill: {
-    backgroundColor: colors.textSecondary,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    borderRadius: 12,
+  attemptPillWrapper: {
     flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  attemptPillInner: {
+    backgroundColor: colors.textSecondary,
+    paddingHorizontal: 13,
+    paddingVertical: 15,
     alignItems: 'center',
   },
   attemptPillPressed: {
@@ -496,7 +437,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#ffffff',
     opacity: 0.7,
-    width: 24,
+    width: 34,
     textAlign: 'left',
   },
   addClimbButton: {

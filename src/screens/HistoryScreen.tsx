@@ -20,37 +20,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
-import { Climb, ClimbType, GradeSettings } from '../types';
+import { Climb, ClimbType, GradeSettings, GradeCount, TypeGradeBreakdown, GroupedClimb, SessionData } from '../types';
 import { colors } from '../theme/colors';
-import { getDisplayGrade, getNormalizedGradeIndex } from '../utils/gradeUtils';
+import { getDisplayGrade, getNormalizedGradeIndex, aggregateGradesByType } from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
-
-interface GroupedClimb extends Climb {
-  index: number;
-}
-
-interface GradeCount {
-  grade: string;
-  sends: number;
-  attempts: number;
-}
-
-interface TypeGradeBreakdown {
-  boulder: GradeCount[];
-  sport: GradeCount[];
-  trad: GradeCount[];
-}
-
-interface SessionData {
-  id: string;
-  climbs: GroupedClimb[];
-  sends: number;
-  attempts: number;
-  startTime: string;
-  endTime: string;
-  durationMs: number;
-  gradesByType: TypeGradeBreakdown;
-}
 
 function formatTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString([], {
@@ -83,10 +56,6 @@ function formatSessionDate(timestamp: string): string {
       year: 'numeric',
     });
   }
-}
-
-function getGradeIndexForSort(grade: string, type: ClimbType): number {
-  return getNormalizedGradeIndex(grade, type);
 }
 
 function GradePill({ grade, count, type, gradeSettings, variant }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings; variant: 'send' | 'attempt' }) {
@@ -174,41 +143,6 @@ function TypeGradeSection({
       </View>
     </View>
   );
-}
-
-function aggregateGradesByType(climbs: GroupedClimb[]): TypeGradeBreakdown {
-  const result: TypeGradeBreakdown = {
-    boulder: [],
-    sport: [],
-    trad: [],
-  };
-
-  // Count grades per type, tracking sends and attempts separately
-  const countMap: Record<ClimbType, Record<string, { sends: number; attempts: number }>> = {
-    boulder: {},
-    sport: {},
-    trad: {},
-  };
-
-  climbs.forEach((climb) => {
-    if (!countMap[climb.type][climb.grade]) {
-      countMap[climb.type][climb.grade] = { sends: 0, attempts: 0 };
-    }
-    if (climb.status === 'attempt') {
-      countMap[climb.type][climb.grade].attempts++;
-    } else {
-      countMap[climb.type][climb.grade].sends++;
-    }
-  });
-
-  // Convert to sorted arrays (highest grade first)
-  (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
-    result[type] = Object.entries(countMap[type])
-      .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
-      .sort((a, b) => getGradeIndexForSort(b.grade, type) - getGradeIndexForSort(a.grade, type));
-  });
-
-  return result;
 }
 
 export default function HistoryScreen() {
@@ -516,6 +450,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cardHeader: {
     padding: 20,
@@ -700,16 +636,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   gradePill: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 16,
     overflow: 'hidden',
+    minWidth: 40,
+    alignItems: 'center',
   },
   attemptPill: {
     backgroundColor: colors.textSecondary,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 16,
+    minWidth: 40,
+    alignItems: 'center',
   },
   gradePillText: {
     fontSize: 14,

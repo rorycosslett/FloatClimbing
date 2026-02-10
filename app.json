@@ -61,7 +61,13 @@
       "url": "https://u.expo.dev/89fb7b0b-81cd-4c43-b099-afa169d33112"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos to set a profile picture."
+        }
+      ]
     ]
   }
 }

@@ -221,20 +221,33 @@ export class SyncService {
     const sessionsToUpload = localSessions.filter((s) => !remoteSessionMap.has(s.id));
     const climbsToUpload = localClimbs.filter((c) => !remoteClimbMap.has(c.id));
 
-    // Upload local-only data to remote
+    // Upload local-only data to remote (skip any that fail due to RLS/ownership conflicts)
+    const uploadedSessions: Session[] = [];
     if (sessionsToUpload.length > 0) {
       for (const session of sessionsToUpload) {
-        await this.upsertSession(session);
+        try {
+          await this.upsertSession(session);
+          uploadedSessions.push(session);
+        } catch (err) {
+          console.warn('Skipping session upload (may belong to another account):', session.id);
+        }
       }
     }
 
-    if (climbsToUpload.length > 0) {
-      await this.upsertClimbs(climbsToUpload);
+    // Only upload climbs whose sessions were successfully uploaded or already exist remotely
+    const validSessionIds = new Set([
+      ...remoteSessions.map((s) => s.id),
+      ...uploadedSessions.map((s) => s.id),
+    ]);
+    const validClimbsToUpload = climbsToUpload.filter((c) => validSessionIds.has(c.sessionId));
+
+    if (validClimbsToUpload.length > 0) {
+      await this.upsertClimbs(validClimbsToUpload);
     }
 
-    // Merge: remote data + local-only data
-    const mergedSessions = [...remoteSessions, ...sessionsToUpload];
-    const mergedClimbs = [...remoteClimbs, ...climbsToUpload];
+    // Merge: remote data + successfully uploaded local data
+    const mergedSessions = [...remoteSessions, ...uploadedSessions];
+    const mergedClimbs = [...remoteClimbs, ...validClimbsToUpload];
 
     return {
       climbs: mergedClimbs,

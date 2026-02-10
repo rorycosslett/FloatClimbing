@@ -9,11 +9,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
 import { getGradesForSettings } from '../data/grades';
-import { getDisplayGrade, getSecondaryGrade } from '../utils/gradeUtils';
+import { getSecondaryGrade } from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
 import { ClimbType, SessionSummary } from '../types';
 import { colors } from '../theme/colors';
 import { SessionSummaryModal } from '../components/SessionSummaryModal';
+import { SwipeableClimbPill } from '../components/SwipeableClimbPill';
 
 const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
@@ -29,13 +30,6 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
 export default function LogScreen() {
   const navigation = useNavigation();
   const { settings } = useSettings();
@@ -43,7 +37,7 @@ export default function LogScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
-  const [sessionListExpanded, setSessionListExpanded] = useState(false);
+  const [sessionListExpanded, setSessionListExpanded] = useState(true);
   const { climbs, addClimb, deleteClimb, activeSession, startSession, endSession, pauseSession, resumeSession, getSessionClimbCount, renameSession } =
     useClimbs();
 
@@ -196,23 +190,24 @@ export default function LogScreen() {
           <Text style={styles.columnHeaderText}>Sends</Text>
         </View>
         <ScrollView style={styles.gradeList}>
-          {currentGrades.map((grade) => {
+          {currentGrades.map((grade, index) => {
             const secondaryGrade = getSecondaryGrade(grade, selectedType, settings.grades);
             const gradientColors = getGradeGradientColors(grade, selectedType, settings.grades);
             return (
-              <View key={grade} style={styles.gradeRow}>
+              <View key={`${grade}-${index}`} style={styles.gradeRow}>
                 <Pressable
                   style={({ pressed }) => [
-                    styles.attemptPill,
+                    styles.attemptPillWrapper,
                     pressed && activeSession && styles.attemptPillPressed,
-                    !activeSession && styles.pillDisabled,
                   ]}
                   onPress={() => handleLog(grade, 'attempt')}
                   disabled={!activeSession}
                 >
-                  <View style={styles.pillContent}>
-                    <Text style={[styles.pillText, !activeSession && styles.pillTextDisabled]}>{grade}</Text>
-                    <Text style={[styles.pillSecondaryText, !activeSession && styles.pillTextDisabled]}>{secondaryGrade}</Text>
+                  <View style={[styles.attemptPillInner, !activeSession && styles.pillDisabled]}>
+                    <View style={styles.pillContent}>
+                      <Text style={[styles.pillText, !activeSession && styles.pillTextDisabled]}>{grade}</Text>
+                      <Text style={[styles.pillSecondaryText, !activeSession && styles.pillTextDisabled]}>{secondaryGrade}</Text>
+                    </View>
                   </View>
                 </Pressable>
                 <Pressable
@@ -284,27 +279,16 @@ export default function LogScreen() {
                       <Text style={styles.emptySessionText}>No climbs yet</Text>
                     </View>
                   ) : (
-                    sessionClimbs.map((climb, idx) => (
-                      <View
-                        key={climb.id}
-                        style={[
-                          styles.sessionClimbRow,
-                          idx === sessionClimbs.length - 1 && styles.sessionClimbRowLast,
-                        ]}
-                      >
-                        <Text style={climb.status === 'attempt' ? styles.attemptIcon : styles.sendIcon}>
-                          {climb.status === 'attempt' ? '○' : '✓'}
-                        </Text>
-                        <Text style={styles.climbGrade}>{getDisplayGrade(climb, settings.grades)}</Text>
-                        {climb.type !== 'boulder' && (
-                          <Text style={styles.climbType}>({climb.type})</Text>
-                        )}
-                        <Text style={styles.climbTime}>{formatTime(climb.timestamp)}</Text>
-                        <Pressable onPress={() => deleteClimb(climb.id)} hitSlop={8}>
-                          <Text style={styles.deleteBtn}>×</Text>
-                        </Pressable>
-                      </View>
-                    ))
+                    <View style={styles.sessionClimbPillContainer}>
+                      {sessionClimbs.map((climb) => (
+                        <SwipeableClimbPill
+                          key={climb.id}
+                          climb={climb}
+                          gradeSettings={settings.grades}
+                          onDelete={() => deleteClimb(climb.id)}
+                        />
+                      ))}
+                    </View>
                   )}
                 </ScrollView>
               </>
@@ -438,19 +422,22 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sendPillGradient: {
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 15,
     alignItems: 'center',
   },
   sendPillPressed: {
     opacity: 0.8,
   },
-  attemptPill: {
-    backgroundColor: colors.textSecondary,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    borderRadius: 12,
+  attemptPillWrapper: {
     flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  attemptPillInner: {
+    backgroundColor: colors.textSecondary,
+    paddingHorizontal: 13,
+    paddingVertical: 15,
     alignItems: 'center',
   },
   attemptPillPressed: {
@@ -478,7 +465,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#ffffff',
     opacity: 0.7,
-    width: 24,
+    width: 34,
     textAlign: 'left',
   },
   pillTextDisabled: {
@@ -585,7 +572,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   sessionClimbsList: {
-    maxHeight: 150,
+    maxHeight: 125,
   },
   emptySessionList: {
     paddingVertical: 20,
@@ -595,51 +582,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
   },
-  sessionClimbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  sessionClimbRowLast: {
-    borderBottomWidth: 0,
-  },
-  sendIcon: {
-    color: colors.primary,
-    fontSize: 14,
-    marginRight: 8,
-    width: 18,
-    textAlign: 'center',
-  },
-  attemptIcon: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginRight: 8,
-    width: 18,
-    textAlign: 'center',
-  },
-  climbGrade: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  climbType: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginLeft: 6,
-  },
-  climbTime: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginLeft: 'auto',
-  },
-  deleteBtn: {
-    color: colors.danger,
-    fontSize: 18,
-    marginLeft: 10,
-    padding: 4,
+  sessionClimbPillContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
   },
   endSessionBtn: {
     flexDirection: 'row',

@@ -339,15 +339,19 @@ const styles = StyleSheet.create({
   },
   gradePill: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 16,
+    minWidth: 40,
+    alignItems: 'center',
   },
   attemptPill: {
     backgroundColor: colors.textSecondary,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 16,
+    minWidth: 40,
+    alignItems: 'center',
   },
   gradePillText: {
     fontSize: 14,

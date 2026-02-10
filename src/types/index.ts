@@ -54,6 +54,21 @@ export interface TypeGradeBreakdown {
   trad: GradeCount[];
 }
 
+export interface GroupedClimb extends Climb {
+  index: number;
+}
+
+export interface SessionData {
+  id: string;
+  climbs: GroupedClimb[];
+  sends: number;
+  attempts: number;
+  startTime: string;
+  endTime: string;
+  durationMs: number;
+  gradesByType: TypeGradeBreakdown;
+}
+
 export interface SessionSummary {
   sessionId: string;
   duration: number;
@@ -69,4 +84,63 @@ export interface SessionSummary {
   };
   gradesByType: TypeGradeBreakdown;
   achievements: Achievement[];
+}
+
+// ============================================
+// SOCIAL TYPES
+// ============================================
+
+export interface Profile {
+  id: string;
+  displayName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileWithStats extends Profile {
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+}
+
+export interface Follow {
+  id: string;
+  followerId: string;
+  followingId: string;
+  createdAt: string;
+}
+
+export interface ActivityMetadata {
+  totalClimbs: number;
+  sends: number;
+  attempts: number;
+  duration: number;
+  maxBoulderGrade: string | null;
+  maxSportGrade: string | null;
+  maxTradGrade: string | null;
+}
+
+export type ActivityType = 'session_completed';
+
+export interface ActivityFeedItem {
+  id: string;
+  userId: string;
+  activityType: ActivityType;
+  sessionId: string | null;
+  metadata: ActivityMetadata;
+  createdAt: string;
+  // Populated fields for display
+  user?: Profile;
+  session?: Session;
+  climbs?: Climb[];
+}
+
+export interface FeedPage {
+  items: ActivityFeedItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }

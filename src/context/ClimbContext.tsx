@@ -10,9 +10,11 @@ import {
   SessionMetadata,
   TypeGradeBreakdown,
 } from '../types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   loadClimbs,
   saveClimbs,
+  clearClimbs,
   loadSession,
   saveSession,
   loadSessionMetadata,
@@ -21,6 +23,7 @@ import {
 import { generateSessionName } from '../utils/sessionUtils';
 import { getNormalizedGradeIndex } from '../utils/gradeUtils';
 import { syncService } from '../services/syncService';
+import { socialService } from '../services/socialService';
 import { useAuth } from './AuthContext';
 
 interface ClimbContextType {
@@ -54,27 +57,55 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
   const [sessionMetadata, setSessionMetadata] = useState<Record<string, SessionMetadata>>({});
   const hasInitialSynced = useRef(false);
 
-  // Update syncService when user changes
+  const LAST_USER_KEY = 'lastUserId';
+
+  // Update services when user changes
   useEffect(() => {
     syncService.setUserId(user?.id || null);
+    socialService.setUserId(user?.id || null);
   }, [user?.id]);
 
-  // Load local data on mount
+  // Load local data on mount, clearing if a different account logged in
   useEffect(() => {
-    Promise.all([loadClimbs(), loadSession(), loadSessionMetadata()]).then(
-      ([climbData, sessionData, metadataData]) => {
-        // Remove any loose climbs (climbs without a sessionId)
-        const validClimbs = climbData.filter((c) => c.sessionId);
-        if (validClimbs.length !== climbData.length) {
-          saveClimbs(validClimbs);
-        }
-        setClimbs(validClimbs);
-        setActiveSession(sessionData);
-        setSessionMetadata(metadataData);
+    const loadData = async () => {
+      const lastUserId = await AsyncStorage.getItem(LAST_USER_KEY);
+
+      // If a different user logged in, clear stale local data
+      if (user?.id && lastUserId && lastUserId !== user.id) {
+        await clearClimbs();
+        await saveSession(null);
+        await saveSessionMetadata({});
+        await AsyncStorage.setItem(LAST_USER_KEY, user.id);
+        setClimbs([]);
+        setActiveSession(null);
+        setSessionMetadata({});
         setIsLoading(false);
+        return;
       }
-    );
-  }, []);
+
+      if (user?.id) {
+        await AsyncStorage.setItem(LAST_USER_KEY, user.id);
+      }
+
+      const [climbData, sessionData, metadataData] = await Promise.all([
+        loadClimbs(),
+        loadSession(),
+        loadSessionMetadata(),
+      ]);
+
+      // Remove any loose climbs (climbs without a sessionId)
+      const validClimbs = climbData.filter((c) => c.sessionId);
+      if (validClimbs.length !== climbData.length) {
+        saveClimbs(validClimbs);
+      }
+      setClimbs(validClimbs);
+      setActiveSession(sessionData);
+      setSessionMetadata(metadataData);
+      setIsLoading(false);
+    };
+
+    loadData();
+  }, [user?.id]);
 
   // Sync when user logs in
   useEffect(() => {
@@ -301,6 +332,19 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         name,
       };
       syncService.upsertSession(completedSession).catch(console.error);
+
+      // Create activity feed item for followers to see
+      if (sends.length > 0) {
+        socialService.createActivityItem(activeSession.id, {
+          totalClimbs: sessionClimbs.length,
+          sends: sends.length,
+          attempts: attempts.length,
+          duration,
+          maxBoulderGrade: maxGradeByType.boulder,
+          maxSportGrade: maxGradeByType.sport,
+          maxTradGrade: maxGradeByType.trad,
+        }).catch(console.error);
+      }
     }
 
     setActiveSession(null);

@@ -1,4 +1,4 @@
-import { ClimbType, GradeSettings, Climb } from '../types';
+import { ClimbType, GradeSettings, Climb, TypeGradeBreakdown } from '../types';
 import { gradesBySystem } from '../data/grades';
 
 // Detect which system a grade belongs to
@@ -71,6 +71,40 @@ export function getSecondaryGrade(grade: string, type: ClimbType, settings: Grad
     : (currentSystem === 'yds' ? 'french' : 'yds');
 
   return convertGrade(grade, type, currentSystem, alternateSystem);
+}
+
+// Aggregate climbs into a grade breakdown by type, tracking sends and attempts separately
+export function aggregateGradesByType(climbs: Climb[]): TypeGradeBreakdown {
+  const result: TypeGradeBreakdown = {
+    boulder: [],
+    sport: [],
+    trad: [],
+  };
+
+  const countMap: Record<ClimbType, Record<string, { sends: number; attempts: number }>> = {
+    boulder: {},
+    sport: {},
+    trad: {},
+  };
+
+  climbs.forEach((climb) => {
+    if (!countMap[climb.type][climb.grade]) {
+      countMap[climb.type][climb.grade] = { sends: 0, attempts: 0 };
+    }
+    if (climb.status === 'attempt') {
+      countMap[climb.type][climb.grade].attempts++;
+    } else {
+      countMap[climb.type][climb.grade].sends++;
+    }
+  });
+
+  (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
+    result[type] = Object.entries(countMap[type])
+      .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
+      .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
+  });
+
+  return result;
 }
 
 // Get the normalized grade index (converts to default system for consistent comparison)

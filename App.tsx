@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,13 +11,19 @@ import Toast, { BaseToastProps } from 'react-native-toast-message';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ClimbProvider } from './src/context/ClimbContext';
 import { SettingsProvider } from './src/context/SettingsContext';
+import { SocialProvider } from './src/context/SocialContext';
 import { colors } from './src/theme/colors';
 import LoginScreen from './src/screens/LoginScreen';
 import LogScreen from './src/screens/LogScreen';
-import HistoryScreen from './src/screens/HistoryScreen';
-import ReportScreen from './src/screens/ReportScreen';
+import FeedScreen from './src/screens/FeedScreen';
+import YouScreen from './src/screens/YouScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditSessionScreen from './src/screens/EditSessionScreen';
+import SearchUsersScreen from './src/screens/SearchUsersScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import FollowListScreen from './src/screens/FollowListScreen';
+import ProfileSettingsScreen from './src/screens/ProfileSettingsScreen';
+import GradeSystemsSettingsScreen from './src/screens/GradeSystemsSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -54,10 +61,10 @@ function MainTabs() {
       }}
     >
       <Tab.Screen
-        name="History"
-        component={HistoryScreen}
+        name="Home"
+        component={FeedScreen}
         options={{
-          tabBarIcon: ({ color }) => <Ionicons name="time-outline" size={28} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={28} color={color} />,
         }}
       />
       <Tab.Screen
@@ -70,10 +77,10 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Insights"
-        component={ReportScreen}
+        name="You"
+        component={YouScreen}
         options={{
-          tabBarIcon: ({ color }) => <Ionicons name="trending-up" size={28} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={28} color={color} />,
         }}
       />
     </Tab.Navigator>
@@ -109,26 +116,35 @@ function AppNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main" component={MainTabs} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
+      <Stack.Screen name="GradeSystemsSettings" component={GradeSystemsSettingsScreen} />
       <Stack.Screen name="EditSession" component={EditSessionScreen} />
+      <Stack.Screen name="SearchUsers" component={SearchUsersScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="FollowList" component={FollowListScreen} />
     </Stack.Navigator>
   );
 }
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <SettingsProvider>
-          <ClimbProvider>
-            <NavigationContainer>
-              <AppNavigator />
-              <StatusBar style="light" />
-            </NavigationContainer>
-            <Toast config={toastConfig} />
-          </ClimbProvider>
-        </SettingsProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <ClimbProvider>
+              <SocialProvider>
+                <NavigationContainer>
+                  <AppNavigator />
+                  <StatusBar style="light" />
+                </NavigationContainer>
+                <Toast config={toastConfig} />
+              </SocialProvider>
+            </ClimbProvider>
+          </SettingsProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

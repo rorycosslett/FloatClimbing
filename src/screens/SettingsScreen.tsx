@@ -2,26 +2,20 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
-import { BoulderGradeSystem, RouteGradeSystem } from '../types';
 
-const BOULDER_SYSTEMS: { key: BoulderGradeSystem; label: string; example: string }[] = [
-  { key: 'vscale', label: 'V-Scale', example: 'V0, V4, V10' },
-  { key: 'fontainebleau', label: 'Fontainebleau', example: '4, 6A, 7A' },
-];
-
-const ROUTE_SYSTEMS: { key: RouteGradeSystem; label: string; example: string }[] = [
-  { key: 'yds', label: 'YDS', example: '5.9, 5.11a, 5.13b' },
-  { key: 'french', label: 'French', example: '5a, 6b, 7c+' },
-];
+type RootStackParamList = {
+  Settings: undefined;
+  ProfileSettings: undefined;
+  GradeSystemsSettings: undefined;
+};
 
 export default function SettingsScreen() {
-  const navigation = useNavigation();
-  const { settings, setBoulderSystem, setRouteSystem } = useSettings();
-  const { user, signOut, isGuest } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { signOut, isGuest } = useAuth();
 
   const handleSignOut = () => {
     Alert.alert(
@@ -55,96 +49,41 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Grade Systems</Text>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Bouldering</Text>
-          <View style={styles.optionsContainer}>
-            {BOULDER_SYSTEMS.map((system) => (
+        <View style={styles.menuCard}>
+          {!isGuest && (
+            <>
               <Pressable
-                key={system.key}
-                style={[
-                  styles.option,
-                  settings.grades.boulderSystem === system.key && styles.optionSelected,
-                ]}
-                onPress={() => setBoulderSystem(system.key)}
+                style={styles.menuRow}
+                onPress={() => navigation.navigate('ProfileSettings')}
               >
-                <View style={styles.optionHeader}>
-                  <Text
-                    style={[
-                      styles.optionLabel,
-                      settings.grades.boulderSystem === system.key && styles.optionLabelSelected,
-                    ]}
-                  >
-                    {system.label}
-                  </Text>
-                  {settings.grades.boulderSystem === system.key && (
-                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                  )}
+                <View style={styles.menuRowLeft}>
+                  <Ionicons name="person-outline" size={22} color={colors.text} />
+                  <Text style={styles.menuRowLabel}>Profile</Text>
                 </View>
-                <Text style={styles.optionExample}>{system.example}</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
               </Pressable>
-            ))}
-          </View>
+              <View style={styles.separator} />
+            </>
+          )}
+
+          <Pressable
+            style={styles.menuRow}
+            onPress={() => navigation.navigate('GradeSystemsSettings')}
+          >
+            <View style={styles.menuRowLeft}>
+              <Ionicons name="speedometer-outline" size={22} color={colors.text} />
+              <Text style={styles.menuRowLabel}>Grade Systems</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sport / Trad</Text>
-          <View style={styles.optionsContainer}>
-            {ROUTE_SYSTEMS.map((system) => (
-              <Pressable
-                key={system.key}
-                style={[
-                  styles.option,
-                  settings.grades.routeSystem === system.key && styles.optionSelected,
-                ]}
-                onPress={() => setRouteSystem(system.key)}
-              >
-                <View style={styles.optionHeader}>
-                  <Text
-                    style={[
-                      styles.optionLabel,
-                      settings.grades.routeSystem === system.key && styles.optionLabelSelected,
-                    ]}
-                  >
-                    {system.label}
-                  </Text>
-                  {settings.grades.routeSystem === system.key && (
-                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                  )}
-                </View>
-                <Text style={styles.optionExample}>{system.example}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Account</Text>
-
-        <View style={styles.card}>
-          {user ? (
-            <View style={styles.accountInfo}>
-              <Ionicons name="person-circle" size={40} color={colors.textSecondary} />
-              <View style={styles.accountDetails}>
-                <Text style={styles.accountEmail}>{user.email}</Text>
-                <Text style={styles.accountProvider}>
-                  Signed in with {user.app_metadata?.provider || 'email'}
-                </Text>
-              </View>
+        <View style={styles.logOutCard}>
+          <Pressable style={styles.menuRow} onPress={handleSignOut}>
+            <View style={styles.menuRowLeft}>
+              <Ionicons name="log-out-outline" size={22} color={colors.danger} />
+              <Text style={[styles.menuRowLabel, { color: colors.danger }]}>Log Out</Text>
             </View>
-          ) : isGuest ? (
-            <View style={styles.accountInfo}>
-              <Ionicons name="person-outline" size={40} color={colors.textSecondary} />
-              <View style={styles.accountDetails}>
-                <Text style={styles.accountEmail}>Guest</Text>
-                <Text style={styles.accountProvider}>Data stored locally only</Text>
-              </View>
-            </View>
-          ) : null}
-
-          <Pressable style={styles.signOutButton} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-            <Text style={styles.signOutText}>Sign Out</Text>
           </Pressable>
         </View>
       </View>
@@ -182,89 +121,37 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  card: {
+  menuCard: {
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    overflow: 'hidden',
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  optionsContainer: {
-    gap: 8,
-  },
-  option: {
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  optionSelected: {
-    borderColor: colors.primary,
+  logOutCard: {
     backgroundColor: colors.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 24,
   },
-  optionHeader: {
+  menuRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  optionLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  optionLabelSelected: {
-    color: colors.primary,
-  },
-  optionExample: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  accountInfo: {
+  menuRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 16,
   },
-  accountDetails: {
-    flex: 1,
-  },
-  accountEmail: {
-    fontSize: 15,
-    fontWeight: '600',
+  menuRowLabel: {
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.text,
   },
-  accountProvider: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  signOutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: 8,
-    padding: 12,
-  },
-  signOutText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.danger,
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginLeft: 50,
   },
 });
