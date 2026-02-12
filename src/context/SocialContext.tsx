@@ -69,8 +69,12 @@ export function SocialProvider({ children }: { children: ReactNode }) {
   }, [user?.id]);
 
   const loadCurrentProfile = async () => {
-    const profile = await socialService.getCurrentUserProfile();
-    setCurrentProfile(profile);
+    try {
+      const profile = await socialService.getCurrentUserProfile();
+      setCurrentProfile(profile);
+    } catch (error) {
+      console.error('Error loading current profile:', error);
+    }
   };
 
   const refreshFeed = useCallback(async () => {

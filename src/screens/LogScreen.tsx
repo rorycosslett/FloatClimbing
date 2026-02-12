@@ -17,6 +17,8 @@ import { ClimbType, SessionSummary } from '../types';
 import { colors } from '../theme/colors';
 import { SessionSummaryModal } from '../components/SessionSummaryModal';
 import { SwipeableClimbPill } from '../components/SwipeableClimbPill';
+import { stravaService } from '../services/stravaService';
+import { generateSessionName } from '../utils/sessionUtils';
 
 type RootStackParamList = {
   Main: undefined;
@@ -129,6 +131,7 @@ export default function LogScreen() {
   const handleFinish = async (name?: string, photoBase64?: string) => {
     const sessionId = sessionSummary?.sessionId;
     const startTime = sessionSummary?.startTime;
+    const summarySnapshot = sessionSummary;
 
     endSession(name);
     setSummaryModalVisible(false);
@@ -152,6 +155,20 @@ export default function LogScreen() {
         startTime,
         photoUrl,
       });
+    }
+
+    // Post to Strava (fire-and-forget, no-ops if not connected)
+    if (summarySnapshot) {
+      const resolvedName = name || generateSessionName(summarySnapshot.startTime);
+      stravaService.createActivity(summarySnapshot, resolvedName, settings.grades)
+        .then((result) => {
+          console.log('Strava activity posted:', result.ok);
+          if (result.ok && result.activityId && sessionId) {
+            stravaService.saveStravaActivityId(sessionId, result.activityId)
+              .catch((err) => console.error('Strava save ID error:', err));
+          }
+        })
+        .catch((err) => console.error('Strava post error:', err));
     }
 
     Toast.show({

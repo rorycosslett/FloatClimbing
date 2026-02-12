@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { ReactNode } from 'react';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -27,6 +28,49 @@ import GradeSystemsSettingsScreen from './src/screens/GradeSystemsSettingsScreen
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class ErrorBoundary extends React.Component<
+  { children: ReactNode },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('App Error Boundary caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={errorBoundaryStyles.container}>
+          <Text style={errorBoundaryStyles.title}>Something went wrong</Text>
+          <Text style={errorBoundaryStyles.message}>
+            Please close and reopen the app.
+          </Text>
+          <Pressable
+            style={errorBoundaryStyles.button}
+            onPress={() => this.setState({ hasError: false })}
+          >
+            <Text style={errorBoundaryStyles.buttonText}>Try Again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const toastConfig = {
   success: ({ text1 }: BaseToastProps) => (
@@ -129,21 +173,23 @@ function AppNavigator() {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <SettingsProvider>
-            <ClimbProvider>
-              <SocialProvider>
-                <NavigationContainer>
-                  <AppNavigator />
-                  <StatusBar style="light" />
-                </NavigationContainer>
-                <Toast config={toastConfig} />
-              </SocialProvider>
-            </ClimbProvider>
-          </SettingsProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <SettingsProvider>
+              <ClimbProvider>
+                <SocialProvider>
+                  <NavigationContainer>
+                    <AppNavigator />
+                    <StatusBar style="light" />
+                  </NavigationContainer>
+                  <Toast config={toastConfig} />
+                </SocialProvider>
+              </ClimbProvider>
+            </SettingsProvider>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
@@ -169,5 +215,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
+  },
+});
+
+const errorBoundaryStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    padding: 24,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  message: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  button: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -26,6 +26,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     loadSettings().then((data) => {
       setSettings(data);
       setIsLoading(false);
+    }).catch((error) => {
+      console.error('Error loading settings:', error);
+      setIsLoading(false);
     });
   }, []);
 

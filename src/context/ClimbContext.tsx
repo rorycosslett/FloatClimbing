@@ -24,6 +24,7 @@ import { generateSessionName } from '../utils/sessionUtils';
 import { getNormalizedGradeIndex } from '../utils/gradeUtils';
 import { syncService } from '../services/syncService';
 import { socialService } from '../services/socialService';
+import { stravaService } from '../services/stravaService';
 import { useAuth } from './AuthContext';
 
 interface ClimbContextType {
@@ -66,45 +67,50 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     syncService.setUserId(user?.id || null);
     socialService.setUserId(user?.id || null);
+    stravaService.setUserId(user?.id || null);
   }, [user?.id]);
 
   // Load local data on mount, clearing if a different account logged in
   useEffect(() => {
     const loadData = async () => {
-      const lastUserId = await AsyncStorage.getItem(LAST_USER_KEY);
+      try {
+        const lastUserId = await AsyncStorage.getItem(LAST_USER_KEY);
 
-      // If a different user logged in, clear stale local data
-      if (user?.id && lastUserId && lastUserId !== user.id) {
-        await clearClimbs();
-        await saveSession(null);
-        await saveSessionMetadata({});
-        await AsyncStorage.setItem(LAST_USER_KEY, user.id);
-        setClimbs([]);
-        setActiveSession(null);
-        setSessionMetadata({});
+        // If a different user logged in, clear stale local data
+        if (user?.id && lastUserId && lastUserId !== user.id) {
+          await clearClimbs();
+          await saveSession(null);
+          await saveSessionMetadata({});
+          await AsyncStorage.setItem(LAST_USER_KEY, user.id);
+          setClimbs([]);
+          setActiveSession(null);
+          setSessionMetadata({});
+          return;
+        }
+
+        if (user?.id) {
+          await AsyncStorage.setItem(LAST_USER_KEY, user.id);
+        }
+
+        const [climbData, sessionData, metadataData] = await Promise.all([
+          loadClimbs(),
+          loadSession(),
+          loadSessionMetadata(),
+        ]);
+
+        // Remove any loose climbs (climbs without a sessionId)
+        const validClimbs = climbData.filter((c) => c.sessionId);
+        if (validClimbs.length !== climbData.length) {
+          saveClimbs(validClimbs);
+        }
+        setClimbs(validClimbs);
+        setActiveSession(sessionData);
+        setSessionMetadata(metadataData);
+      } catch (error) {
+        console.error('Error loading climb data:', error);
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      if (user?.id) {
-        await AsyncStorage.setItem(LAST_USER_KEY, user.id);
-      }
-
-      const [climbData, sessionData, metadataData] = await Promise.all([
-        loadClimbs(),
-        loadSession(),
-        loadSessionMetadata(),
-      ]);
-
-      // Remove any loose climbs (climbs without a sessionId)
-      const validClimbs = climbData.filter((c) => c.sessionId);
-      if (validClimbs.length !== climbData.length) {
-        saveClimbs(validClimbs);
-      }
-      setClimbs(validClimbs);
-      setActiveSession(sessionData);
-      setSessionMetadata(metadataData);
-      setIsLoading(false);
     };
 
     loadData();

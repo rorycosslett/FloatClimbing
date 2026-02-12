@@ -14,6 +14,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   continueAsGuest: () => void;
 }
 
@@ -33,6 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setIsLoading(false);
+    }).catch((error) => {
+      console.error('Error getting initial session:', error);
       setIsLoading(false);
     });
 
@@ -145,6 +149,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsGuest(false);
   };
 
+  const deleteAccount = async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) {
+      throw new Error('No active session. Please sign in again.');
+    }
+
+    const { error } = await supabase.functions.invoke('delete-account', {
+      body: {},
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+      },
+    });
+    if (error) {
+      console.error('Delete account error:', error);
+      throw new Error('Failed to delete account. Please try again.');
+    }
+    await supabase.auth.signOut();
+    setIsGuest(false);
+  };
+
   const continueAsGuest = () => {
     setIsGuest(true);
   };
@@ -159,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signInWithApple,
         signOut,
+        deleteAccount,
         continueAsGuest,
       }}
     >

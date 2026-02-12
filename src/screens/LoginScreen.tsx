@@ -47,7 +47,7 @@ export default function LoginScreen() {
             resizeMode="contain"
           />
           <Text style={styles.subtitle}>
-            Log your sends and attempts. Improve with data insights. Get inspired by other climbers.
+            Log your climbing sessions. Improve with data insights. Get inspired by other climbers.
           </Text>
         </View>
 
