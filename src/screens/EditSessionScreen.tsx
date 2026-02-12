@@ -95,14 +95,12 @@ export default function EditSessionScreen() {
   const [isEditingName, setIsEditingName] = useState(false);
 
   // Sync session name from metadata when it updates (e.g. from pause modal)
+  const currentMetadataName = sessionMetadata[sessionId]?.name;
   useEffect(() => {
-    if (!isEditingName) {
-      const metadataName = sessionMetadata[sessionId]?.name;
-      if (metadataName) {
-        setSessionName(metadataName);
-      }
+    if (!isEditingName && currentMetadataName) {
+      setSessionName(currentMetadataName);
     }
-  }, [sessionMetadata[sessionId]?.name]);
+  }, [isEditingName, sessionId, currentMetadataName]);
   const [showAddClimbModal, setShowAddClimbModal] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
   const [photoUploading, setPhotoUploading] = useState(false);

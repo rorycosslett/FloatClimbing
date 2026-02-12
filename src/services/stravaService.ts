@@ -5,7 +5,6 @@ import { getDisplayGrade } from '../utils/gradeUtils';
 const STRAVA_CLIENT_ID = process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID || '';
 const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/mobile/authorize';
 const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 
 class StravaService {
   private userId: string | null = null;
@@ -48,16 +47,16 @@ class StravaService {
 
     // responseBody may be the error body when fnError is set
     console.log('Strava token response:', JSON.stringify(responseBody));
-    console.log('Strava token fnError:', fnError ? JSON.stringify({ message: fnError.message, name: fnError.name, context: (fnError as any).context }) : 'none');
+    console.log('Strava token fnError:', fnError ? JSON.stringify({ message: fnError.message, name: fnError.name, context: (fnError as Record<string, unknown>).context }) : 'none');
     if (fnError) {
       // Try to read the response body from the error context
       try {
-        const errorContext = (fnError as any).context;
+        const errorContext = (fnError as Record<string, unknown>).context as { json?: () => Promise<unknown> } | undefined;
         if (errorContext?.json) {
           const errorBody = await errorContext.json();
           console.log('Edge function error body:', JSON.stringify(errorBody));
         }
-      } catch {}
+      } catch { /* ignore parse errors */ }
       return false;
     }
     if (!responseBody?.access_token) return false;

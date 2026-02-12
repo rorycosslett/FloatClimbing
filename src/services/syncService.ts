@@ -123,6 +123,7 @@ export class SyncService {
     if (insertError) {
       // If row already exists (conflict on id), update instead
       if (insertError.code === '23505') {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id: _id, user_id: _uid, ...updateFields } = dbSession;
         const { error: updateError } = await supabase
           .from('sessions')
@@ -187,6 +188,7 @@ export class SyncService {
 
     if (insertError) {
       if (insertError.code === '23505') {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id: _id, user_id: _uid, ...updateFields } = dbClimb;
         const { error: updateError } = await supabase
           .from('climbs')

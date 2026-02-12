@@ -2,7 +2,6 @@ import { supabase } from './supabase';
 import {
   Profile,
   ProfileWithStats,
-  Follow,
   ActivityFeedItem,
   ActivityMetadata,
   FeedPage,
@@ -25,13 +24,6 @@ interface DbProfile {
   is_public: boolean;
   created_at: string;
   updated_at: string;
-}
-
-interface DbFollow {
-  id: string;
-  follower_id: string;
-  following_id: string;
-  created_at: string;
 }
 
 interface DbActivityFeedItem {
@@ -78,15 +70,6 @@ function fromDbProfile(db: DbProfile): Profile {
     isPublic: db.is_public,
     createdAt: db.created_at,
     updatedAt: db.updated_at,
-  };
-}
-
-function _fromDbFollow(db: DbFollow): Follow {
-  return {
-    id: db.id,
-    followerId: db.follower_id,
-    followingId: db.following_id,
-    createdAt: db.created_at,
   };
 }
 
