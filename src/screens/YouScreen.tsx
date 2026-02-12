@@ -1,13 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Modal,
-  Image,
-} from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,7 +9,11 @@ import { useClimbs } from '../context/ClimbContext';
 import { useSettings } from '../context/SettingsContext';
 import { Climb, ClimbType, GradeSettings, GradeCount, GroupedClimb, SessionData } from '../types';
 import { colors } from '../theme/colors';
-import { getDisplayGrade, getNormalizedGradeIndex, aggregateGradesByType } from '../utils/gradeUtils';
+import {
+  getDisplayGrade,
+  getNormalizedGradeIndex,
+  aggregateGradesByType,
+} from '../utils/gradeUtils';
 import { getGradeGradientColors } from '../utils/gradeColors';
 import GradeProgressionChart from '../components/charts/GradeProgressionChart';
 import WeeklyActivityChart from '../components/charts/WeeklyActivityChart';
@@ -87,7 +83,8 @@ function GradePill({
     return (
       <View style={styles.attemptPill}>
         <Text style={styles.gradePillText}>
-          {displayGrade}{count > 1 ? ` ×${count}` : ''}
+          {displayGrade}
+          {count > 1 ? ` ×${count}` : ''}
         </Text>
       </View>
     );
@@ -101,7 +98,8 @@ function GradePill({
       style={styles.gradePill}
     >
       <Text style={styles.gradePillText}>
-        {displayGrade}{count > 1 ? ` ×${count}` : ''}
+        {displayGrade}
+        {count > 1 ? ` ×${count}` : ''}
       </Text>
     </LinearGradient>
   );
@@ -145,7 +143,14 @@ function TypeGradeSection({
       <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
       <View style={styles.gradePillsContainer}>
         {visiblePills.map(({ grade, count, variant }, idx) => (
-          <GradePill key={`${grade}-${variant}-${idx}`} grade={grade} count={count} type={type} gradeSettings={gradeSettings} variant={variant} />
+          <GradePill
+            key={`${grade}-${variant}-${idx}`}
+            grade={grade}
+            count={count}
+            type={type}
+            gradeSettings={gradeSettings}
+            variant={variant}
+          />
         ))}
         {hasMore && !expanded && (
           <Pressable onPress={onToggleExpand} hitSlop={8}>
@@ -238,27 +243,26 @@ function HistoryContent() {
   });
 
   // Build session data from climbs
-  const sessions: SessionData[] = Object.keys(sessionClimbs)
-    .map((sessionId) => {
-      const sClimbs = sessionClimbs[sessionId].sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      const times = sClimbs.map((c) => new Date(c.timestamp).getTime());
-      const startTime = new Date(Math.min(...times)).toISOString();
-      const endTime = new Date(Math.max(...times)).toISOString();
+  const sessions: SessionData[] = Object.keys(sessionClimbs).map((sessionId) => {
+    const sClimbs = sessionClimbs[sessionId].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    const times = sClimbs.map((c) => new Date(c.timestamp).getTime());
+    const startTime = new Date(Math.min(...times)).toISOString();
+    const endTime = new Date(Math.max(...times)).toISOString();
 
-      return {
-        id: sessionId,
-        climbs: sClimbs,
-        sends: sClimbs.filter((c) => c.status !== 'attempt').length,
-        attempts: sClimbs.filter((c) => c.status === 'attempt').length,
-        startTime,
-        endTime,
-        durationMs: Math.max(...times) - Math.min(...times),
-        gradesByType: aggregateGradesByType(sClimbs),
-        photoUrl: sessionMetadata[sessionId]?.photoUrl,
-      };
-    });
+    return {
+      id: sessionId,
+      climbs: sClimbs,
+      sends: sClimbs.filter((c) => c.status !== 'attempt').length,
+      attempts: sClimbs.filter((c) => c.status === 'attempt').length,
+      startTime,
+      endTime,
+      durationMs: Math.max(...times) - Math.min(...times),
+      gradesByType: aggregateGradesByType(sClimbs),
+      photoUrl: sessionMetadata[sessionId]?.photoUrl,
+    };
+  });
 
   // Add empty sessions from metadata (sessions with no climbs)
   const sessionIdsWithClimbs = new Set(Object.keys(sessionClimbs));
@@ -337,12 +341,16 @@ function HistoryContent() {
             <View style={styles.sessionStatsRow}>
               <View style={styles.sessionStatItem}>
                 <Text style={styles.sessionStatValue}>{session.sends}</Text>
-                <Text style={styles.sessionStatLabel}>{session.sends === 1 ? 'send' : 'sends'}</Text>
+                <Text style={styles.sessionStatLabel}>
+                  {session.sends === 1 ? 'send' : 'sends'}
+                </Text>
               </View>
               <View style={styles.sessionStatDivider} />
               <View style={styles.sessionStatItem}>
                 <Text style={styles.sessionStatValue}>{session.attempts}</Text>
-                <Text style={styles.sessionStatLabel}>{session.attempts === 1 ? 'attempt' : 'attempts'}</Text>
+                <Text style={styles.sessionStatLabel}>
+                  {session.attempts === 1 ? 'attempt' : 'attempts'}
+                </Text>
               </View>
               <View style={styles.sessionStatDivider} />
               <View style={styles.sessionStatItem}>
@@ -357,36 +365,54 @@ function HistoryContent() {
                   type="boulder"
                   grades={session.gradesByType.boulder}
                   expanded={expandedGrades.has(`${session.id}-boulder`)}
-                  onToggleExpand={() => setExpandedGrades((prev) => {
-                    const next = new Set(prev);
-                    const key = `${session.id}-boulder`;
-                    if (next.has(key)) { next.delete(key); } else { next.add(key); }
-                    return next;
-                  })}
+                  onToggleExpand={() =>
+                    setExpandedGrades((prev) => {
+                      const next = new Set(prev);
+                      const key = `${session.id}-boulder`;
+                      if (next.has(key)) {
+                        next.delete(key);
+                      } else {
+                        next.add(key);
+                      }
+                      return next;
+                    })
+                  }
                   gradeSettings={settings.grades}
                 />
                 <TypeGradeSection
                   type="sport"
                   grades={session.gradesByType.sport}
                   expanded={expandedGrades.has(`${session.id}-sport`)}
-                  onToggleExpand={() => setExpandedGrades((prev) => {
-                    const next = new Set(prev);
-                    const key = `${session.id}-sport`;
-                    if (next.has(key)) { next.delete(key); } else { next.add(key); }
-                    return next;
-                  })}
+                  onToggleExpand={() =>
+                    setExpandedGrades((prev) => {
+                      const next = new Set(prev);
+                      const key = `${session.id}-sport`;
+                      if (next.has(key)) {
+                        next.delete(key);
+                      } else {
+                        next.add(key);
+                      }
+                      return next;
+                    })
+                  }
                   gradeSettings={settings.grades}
                 />
                 <TypeGradeSection
                   type="trad"
                   grades={session.gradesByType.trad}
                   expanded={expandedGrades.has(`${session.id}-trad`)}
-                  onToggleExpand={() => setExpandedGrades((prev) => {
-                    const next = new Set(prev);
-                    const key = `${session.id}-trad`;
-                    if (next.has(key)) { next.delete(key); } else { next.add(key); }
-                    return next;
-                  })}
+                  onToggleExpand={() =>
+                    setExpandedGrades((prev) => {
+                      const next = new Set(prev);
+                      const key = `${session.id}-trad`;
+                      if (next.has(key)) {
+                        next.delete(key);
+                      } else {
+                        next.add(key);
+                      }
+                      return next;
+                    })
+                  }
                   gradeSettings={settings.grades}
                 />
               </View>
@@ -395,7 +421,12 @@ function HistoryContent() {
         ))}
       </ScrollView>
 
-      <Modal visible={actionMenuVisible} transparent animationType="fade" onRequestClose={handleCloseActionMenu}>
+      <Modal
+        visible={actionMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseActionMenu}
+      >
         <Pressable style={styles.modalOverlay} onPress={handleCloseActionMenu}>
           <Pressable style={styles.actionMenuContent} onPress={(e) => e.stopPropagation()}>
             <Pressable style={styles.actionMenuItem} onPress={handleEditFromMenu}>
@@ -409,7 +440,12 @@ function HistoryContent() {
         </Pressable>
       </Modal>
 
-      <Modal visible={deleteConfirmVisible} transparent animationType="fade" onRequestClose={handleCancelDelete}>
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
         <Pressable style={styles.modalOverlay} onPress={handleCancelDelete}>
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Delete Session?</Text>
@@ -484,7 +520,20 @@ function InsightsContent() {
       : 0;
 
     const formatDate = (d: Date) => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return `${months[d.getMonth()]} ${d.getDate()}`;
     };
 
@@ -612,10 +661,7 @@ export default function YouScreen() {
             >
               <Ionicons name="person-add-outline" size={22} color={colors.text} />
             </Pressable>
-            <Pressable
-              onPress={() => navigation.navigate('Settings')}
-              style={styles.headerButton}
-            >
+            <Pressable onPress={() => navigation.navigate('Settings')} style={styles.headerButton}>
               <Ionicons name="settings-outline" size={24} color={colors.text} />
             </Pressable>
           </View>

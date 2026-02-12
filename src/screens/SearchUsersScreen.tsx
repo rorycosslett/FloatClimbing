@@ -106,17 +106,13 @@ export default function SearchUsersScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="search-outline" size={48} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>No users found</Text>
-          <Text style={styles.emptyText}>
-            Try searching with a different name
-          </Text>
+          <Text style={styles.emptyText}>Try searching with a different name</Text>
         </View>
       ) : !hasSearched ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="people-outline" size={48} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>Find climbers to follow</Text>
-          <Text style={styles.emptyText}>
-            Search by name to discover other climbers
-          </Text>
+          <Text style={styles.emptyText}>Search by name to discover other climbers</Text>
         </View>
       ) : (
         <FlatList

@@ -27,7 +27,10 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseUser.auth.getUser();
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -46,9 +49,7 @@ serve(async (req) => {
 
     // Delete storage files before removing the user
     // Avatars: avatars/{userId}/*
-    const { data: avatarFiles } = await supabaseAdmin.storage
-      .from('avatars')
-      .list(userId);
+    const { data: avatarFiles } = await supabaseAdmin.storage.from('avatars').list(userId);
 
     if (avatarFiles && avatarFiles.length > 0) {
       const avatarPaths = avatarFiles.map((f) => `${userId}/${f.name}`);

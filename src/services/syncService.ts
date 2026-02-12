@@ -28,7 +28,10 @@ interface DbClimb {
 }
 
 // Convert local Session to DB format
-function toDbSession(session: Session, userId: string): Omit<DbSession, 'created_at' | 'updated_at'> {
+function toDbSession(
+  session: Session,
+  userId: string
+): Omit<DbSession, 'created_at' | 'updated_at'> {
   return {
     id: session.id,
     user_id: userId,
@@ -116,9 +119,7 @@ export class SyncService {
 
     // Use insert + update fallback to avoid RLS conflicts with upsert
     const dbSession = toDbSession(session, this.userId);
-    const { error: insertError } = await supabase
-      .from('sessions')
-      .insert(dbSession);
+    const { error: insertError } = await supabase.from('sessions').insert(dbSession);
 
     if (insertError) {
       // If row already exists (conflict on id), update instead
@@ -182,9 +183,7 @@ export class SyncService {
     if (!this.userId) return;
 
     const dbClimb = toDbClimb(climb, this.userId);
-    const { error: insertError } = await supabase
-      .from('climbs')
-      .insert(dbClimb);
+    const { error: insertError } = await supabase.from('climbs').insert(dbClimb);
 
     if (insertError) {
       if (insertError.code === '23505') {
@@ -212,9 +211,7 @@ export class SyncService {
 
     // Insert all, then update any that already existed
     const dbClimbs = climbs.map((c) => toDbClimb(c, this.userId!));
-    const { error: insertError } = await supabase
-      .from('climbs')
-      .insert(dbClimbs);
+    const { error: insertError } = await supabase.from('climbs').insert(dbClimbs);
 
     if (insertError) {
       if (insertError.code === '23505') {
@@ -248,7 +245,10 @@ export class SyncService {
   // FULL SYNC
   // ============================================
 
-  async syncLocalData(localClimbs: Climb[], localSessions: Session[]): Promise<{
+  async syncLocalData(
+    localClimbs: Climb[],
+    localSessions: Session[]
+  ): Promise<{
     climbs: Climb[];
     sessions: Session[];
   }> {

@@ -8,11 +8,7 @@ import React, {
 } from 'react';
 import { useAuth } from './AuthContext';
 import { socialService } from '../services/socialService';
-import {
-  Profile,
-  ProfileWithStats,
-  ActivityFeedItem,
-} from '../types';
+import { Profile, ProfileWithStats, ActivityFeedItem } from '../types';
 
 interface SocialContextType {
   // Feed state
@@ -65,7 +61,7 @@ export function SocialProvider({ children }: { children: ReactNode }) {
       setFeedCursor(null);
       setHasMoreFeed(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const loadCurrentProfile = async () => {
@@ -123,33 +119,24 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     [refreshFeed]
   );
 
-  const unfollowUser = useCallback(
-    async (userId: string): Promise<boolean> => {
-      const success = await socialService.unfollowUser(userId);
-      if (success) {
-        // Remove unfollowed user's items from feed
-        setFeed((prev) => prev.filter((item) => item.userId !== userId));
-        // Update current profile stats
-        loadCurrentProfile();
-      }
-      return success;
-    },
-    []
-  );
+  const unfollowUser = useCallback(async (userId: string): Promise<boolean> => {
+    const success = await socialService.unfollowUser(userId);
+    if (success) {
+      // Remove unfollowed user's items from feed
+      setFeed((prev) => prev.filter((item) => item.userId !== userId));
+      // Update current profile stats
+      loadCurrentProfile();
+    }
+    return success;
+  }, []);
 
-  const searchUsers = useCallback(
-    async (query: string): Promise<ProfileWithStats[]> => {
-      return socialService.searchUsers(query);
-    },
-    []
-  );
+  const searchUsers = useCallback(async (query: string): Promise<ProfileWithStats[]> => {
+    return socialService.searchUsers(query);
+  }, []);
 
-  const getProfile = useCallback(
-    async (userId: string): Promise<ProfileWithStats | null> => {
-      return socialService.getProfile(userId);
-    },
-    []
-  );
+  const getProfile = useCallback(async (userId: string): Promise<ProfileWithStats | null> => {
+    return socialService.getProfile(userId);
+  }, []);
 
   const updateProfile = useCallback(
     async (updates: { firstName?: string; lastName?: string }): Promise<boolean> => {
@@ -162,16 +149,13 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const uploadAvatar = useCallback(
-    async (base64Data: string): Promise<string | null> => {
-      const publicUrl = await socialService.uploadAvatar(base64Data);
-      if (publicUrl) {
-        await loadCurrentProfile();
-      }
-      return publicUrl;
-    },
-    []
-  );
+  const uploadAvatar = useCallback(async (base64Data: string): Promise<string | null> => {
+    const publicUrl = await socialService.uploadAvatar(base64Data);
+    if (publicUrl) {
+      await loadCurrentProfile();
+    }
+    return publicUrl;
+  }, []);
 
   const uploadSessionPhoto = useCallback(
     async (sessionId: string, base64Data: string): Promise<string | null> => {
@@ -180,19 +164,13 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const removeFeedItem = useCallback(
-    (sessionId: string) => {
-      setFeed((prev) => prev.filter((item) => item.sessionId !== sessionId));
-    },
-    []
-  );
+  const removeFeedItem = useCallback((sessionId: string) => {
+    setFeed((prev) => prev.filter((item) => item.sessionId !== sessionId));
+  }, []);
 
-  const deleteSessionPhoto = useCallback(
-    async (sessionId: string): Promise<boolean> => {
-      return socialService.deleteSessionPhoto(sessionId);
-    },
-    []
-  );
+  const deleteSessionPhoto = useCallback(async (sessionId: string): Promise<boolean> => {
+    return socialService.deleteSessionPhoto(sessionId);
+  }, []);
 
   return (
     <SocialContext.Provider

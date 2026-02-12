@@ -16,7 +16,12 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp, NavigatorScreenParams } from '@react-navigation/native';
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  NavigatorScreenParams,
+} from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -87,7 +92,17 @@ export default function EditSessionScreen() {
   const route = useRoute<RouteProp<EditSessionRouteParams, 'EditSession'>>();
   const { sessionId, startTime, photoUrl: initialPhotoUrl } = route.params;
   const { settings } = useSettings();
-  const { climbs, deleteClimb, addClimbToSession, getSessionName, renameSession, updateSessionPhotoUrl, updateSessionPrivacy, deleteSession, sessionMetadata } = useClimbs();
+  const {
+    climbs,
+    deleteClimb,
+    addClimbToSession,
+    getSessionName,
+    renameSession,
+    updateSessionPhotoUrl,
+    updateSessionPrivacy,
+    deleteSession,
+    sessionMetadata,
+  } = useClimbs();
   const { uploadSessionPhoto, deleteSessionPhoto } = useSocial();
 
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
@@ -105,9 +120,7 @@ export default function EditSessionScreen() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-  const [isPublic, setIsPublic] = useState<boolean>(
-    sessionMetadata[sessionId]?.isPublic !== false
-  );
+  const [isPublic, setIsPublic] = useState<boolean>(sessionMetadata[sessionId]?.isPublic !== false);
 
   const sessionClimbs = climbs
     .filter((c) => c.sessionId === sessionId)
@@ -310,9 +323,7 @@ export default function EditSessionScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Current Climbs ({sessionClimbs.length})
-          </Text>
+          <Text style={styles.sectionTitle}>Current Climbs ({sessionClimbs.length})</Text>
           {sessionClimbs.length === 0 ? (
             <View style={styles.emptyClimbs}>
               <Text style={styles.emptyText}>No climbs in this session</Text>
@@ -329,10 +340,7 @@ export default function EditSessionScreen() {
               ))}
             </View>
           )}
-          <Pressable
-            style={styles.addClimbButton}
-            onPress={() => setShowAddClimbModal(true)}
-          >
+          <Pressable style={styles.addClimbButton} onPress={() => setShowAddClimbModal(true)}>
             <Ionicons name="add" size={20} color={colors.primary} />
             <Text style={styles.addClimbButtonText}>Add Climb</Text>
           </Pressable>
@@ -348,13 +356,9 @@ export default function EditSessionScreen() {
                 color={isPublic ? colors.primary : colors.textSecondary}
               />
               <View>
-                <Text style={styles.privacyLabel}>
-                  {isPublic ? 'Public' : 'Private'}
-                </Text>
+                <Text style={styles.privacyLabel}>{isPublic ? 'Public' : 'Private'}</Text>
                 <Text style={styles.privacyDescription}>
-                  {isPublic
-                    ? "Visible on followers' feeds"
-                    : 'Only visible in your history'}
+                  {isPublic ? "Visible on followers' feeds" : 'Only visible in your history'}
                 </Text>
               </View>
             </View>
@@ -462,7 +466,12 @@ export default function EditSessionScreen() {
         <Toast config={modalToastConfig} />
       </Modal>
 
-      <Modal visible={deleteConfirmVisible} transparent animationType="fade" onRequestClose={handleCancelDelete}>
+      <Modal
+        visible={deleteConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDelete}
+      >
         <Pressable style={styles.deleteModalOverlay} onPress={handleCancelDelete}>
           <Pressable style={styles.deleteModalContent} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.deleteModalTitle}>Delete Session?</Text>

@@ -38,7 +38,9 @@ class StravaService {
   async exchangeCodeForTokens(code: string): Promise<boolean> {
     if (!this.userId) return false;
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) return false;
 
     const { data: responseBody, error: fnError } = await supabase.functions.invoke('strava-token', {
@@ -47,16 +49,29 @@ class StravaService {
 
     // responseBody may be the error body when fnError is set
     console.log('Strava token response:', JSON.stringify(responseBody));
-    console.log('Strava token fnError:', fnError ? JSON.stringify({ message: fnError.message, name: fnError.name, context: (fnError as Record<string, unknown>).context }) : 'none');
+    console.log(
+      'Strava token fnError:',
+      fnError
+        ? JSON.stringify({
+            message: fnError.message,
+            name: fnError.name,
+            context: (fnError as Record<string, unknown>).context,
+          })
+        : 'none'
+    );
     if (fnError) {
       // Try to read the response body from the error context
       try {
-        const errorContext = (fnError as Record<string, unknown>).context as { json?: () => Promise<unknown> } | undefined;
+        const errorContext = (fnError as Record<string, unknown>).context as
+          | { json?: () => Promise<unknown> }
+          | undefined;
         if (errorContext?.json) {
           const errorBody = await errorContext.json();
           console.log('Edge function error body:', JSON.stringify(errorBody));
         }
-      } catch { /* ignore parse errors */ }
+      } catch {
+        /* ignore parse errors */
+      }
       return false;
     }
     if (!responseBody?.access_token) return false;
@@ -130,7 +145,7 @@ class StravaService {
   async createActivity(
     summary: SessionSummary,
     sessionName: string,
-    gradeSettings: GradeSettings,
+    gradeSettings: GradeSettings
   ): Promise<{ ok: boolean; activityId?: number }> {
     const accessToken = await this.getAccessToken();
     if (!accessToken) return { ok: false };
@@ -142,7 +157,7 @@ class StravaService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         name: sessionName,
@@ -175,7 +190,9 @@ class StravaService {
 
   private buildDescription(summary: SessionSummary, gradeSettings: GradeSettings): string {
     const lines: string[] = [];
-    lines.push(`${summary.sends} sends | ${summary.attempts} attempts | ${summary.totalClimbs} total climbs`);
+    lines.push(
+      `${summary.sends} sends | ${summary.attempts} attempts | ${summary.totalClimbs} total climbs`
+    );
     lines.push('');
 
     const types: ClimbType[] = ['boulder', 'sport', 'trad'];
@@ -195,15 +212,24 @@ class StravaService {
 
     const maxParts: string[] = [];
     if (summary.maxGradeByType.boulder) {
-      const display = getDisplayGrade({ grade: summary.maxGradeByType.boulder, type: 'boulder' } as Climb, gradeSettings);
+      const display = getDisplayGrade(
+        { grade: summary.maxGradeByType.boulder, type: 'boulder' } as Climb,
+        gradeSettings
+      );
       maxParts.push(`Boulder ${display}`);
     }
     if (summary.maxGradeByType.sport) {
-      const display = getDisplayGrade({ grade: summary.maxGradeByType.sport, type: 'sport' } as Climb, gradeSettings);
+      const display = getDisplayGrade(
+        { grade: summary.maxGradeByType.sport, type: 'sport' } as Climb,
+        gradeSettings
+      );
       maxParts.push(`Sport ${display}`);
     }
     if (summary.maxGradeByType.trad) {
-      const display = getDisplayGrade({ grade: summary.maxGradeByType.trad, type: 'trad' } as Climb, gradeSettings);
+      const display = getDisplayGrade(
+        { grade: summary.maxGradeByType.trad, type: 'trad' } as Climb,
+        gradeSettings
+      );
       maxParts.push(`Trad ${display}`);
     }
     if (maxParts.length > 0) {

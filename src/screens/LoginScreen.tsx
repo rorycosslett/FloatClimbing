@@ -83,9 +83,7 @@ export default function LoginScreen() {
             ) : (
               <>
                 <Ionicons name="logo-apple" size={20} color={colors.background} />
-                <Text style={[styles.buttonText, styles.appleButtonText]}>
-                  Continue with Apple
-                </Text>
+                <Text style={[styles.buttonText, styles.appleButtonText]}>Continue with Apple</Text>
               </>
             )}
           </Pressable>

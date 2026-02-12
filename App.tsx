@@ -33,10 +33,7 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends React.Component<
-  { children: ReactNode },
-  ErrorBoundaryState
-> {
+class ErrorBoundary extends React.Component<{ children: ReactNode }, ErrorBoundaryState> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -55,9 +52,7 @@ class ErrorBoundary extends React.Component<
       return (
         <View style={errorBoundaryStyles.container}>
           <Text style={errorBoundaryStyles.title}>Something went wrong</Text>
-          <Text style={errorBoundaryStyles.message}>
-            Please close and reopen the app.
-          </Text>
+          <Text style={errorBoundaryStyles.message}>Please close and reopen the app.</Text>
           <Pressable
             style={errorBoundaryStyles.button}
             onPress={() => this.setState({ hasError: false })}
@@ -115,9 +110,7 @@ function MainTabs() {
         name="Log"
         component={LogScreen}
         options={{
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="add-circle-outline" size={28} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="add-circle-outline" size={28} color={color} />,
         }}
       />
       <Tab.Screen

@@ -62,9 +62,7 @@ function EmptyFeedState() {
     <View style={styles.emptyContainer}>
       <Ionicons name="people-outline" size={64} color={colors.textMuted} />
       <Text style={styles.emptyTitle}>Your feed is empty</Text>
-      <Text style={styles.emptyText}>
-        Follow other climbers to see their sessions here.
-      </Text>
+      <Text style={styles.emptyText}>Follow other climbers to see their sessions here.</Text>
       <Pressable
         style={styles.findFriendsButton}
         onPress={() => navigation.navigate('SearchUsers')}
@@ -79,15 +77,8 @@ function EmptyFeedState() {
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { isGuest, user } = useAuth();
-  const {
-    feed,
-    feedLoading,
-    feedError,
-    hasMoreFeed,
-    refreshFeed,
-    loadMoreFeed,
-    removeFeedItem,
-  } = useSocial();
+  const { feed, feedLoading, feedError, hasMoreFeed, refreshFeed, loadMoreFeed, removeFeedItem } =
+    useSocial();
   const { deleteSession } = useClimbs();
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
   const [actionMenuItem, setActionMenuItem] = useState<ActivityFeedItem | null>(null);
@@ -164,10 +155,7 @@ export default function FeedScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Home</Text>
-          <Pressable
-            onPress={() => navigation.navigate('SearchUsers')}
-            style={styles.searchButton}
-          >
+          <Pressable onPress={() => navigation.navigate('SearchUsers')} style={styles.searchButton}>
             <Ionicons name="search" size={22} color={colors.text} />
           </Pressable>
         </View>

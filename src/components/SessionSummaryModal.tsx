@@ -68,12 +68,25 @@ function formatSessionDate(timestamp: string): string {
   }
 }
 
-function GradePill({ grade, count, type, gradeSettings, variant }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings; variant: 'send' | 'attempt' }) {
+function GradePill({
+  grade,
+  count,
+  type,
+  gradeSettings,
+  variant,
+}: {
+  grade: string;
+  count: number;
+  type: ClimbType;
+  gradeSettings: GradeSettings;
+  variant: 'send' | 'attempt';
+}) {
   const displayGrade = getDisplayGrade({ grade, type } as Climb, gradeSettings);
   return (
     <View style={variant === 'send' ? styles.gradePill : styles.attemptPill}>
       <Text style={styles.gradePillText}>
-        {displayGrade}{count > 1 ? ` ×${count}` : ''}
+        {displayGrade}
+        {count > 1 ? ` ×${count}` : ''}
       </Text>
     </View>
   );
@@ -110,7 +123,14 @@ function TypeGradeSection({
       <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
       <View style={styles.gradePillsContainer}>
         {allPills.map(({ grade, count, variant }, idx) => (
-          <GradePill key={`${grade}-${variant}-${idx}`} grade={grade} count={count} type={type} gradeSettings={gradeSettings} variant={variant} />
+          <GradePill
+            key={`${grade}-${variant}-${idx}`}
+            grade={grade}
+            count={count}
+            type={type}
+            gradeSettings={gradeSettings}
+            variant={variant}
+          />
         ))}
       </View>
     </View>
@@ -220,12 +240,7 @@ export function SessionSummaryModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => {}}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -247,7 +262,8 @@ export function SessionSummaryModal({
               <Ionicons name="pencil" size={16} color={colors.textMuted} />
             </View>
             <Text style={styles.cardSubtitle}>
-              {formatSessionDate(summary.startTime)} at {formatTime(summary.startTime)} · {formatDuration(summary.duration)}
+              {formatSessionDate(summary.startTime)} at {formatTime(summary.startTime)} ·{' '}
+              {formatDuration(summary.duration)}
             </Text>
           </View>
 

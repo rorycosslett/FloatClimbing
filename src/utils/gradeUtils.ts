@@ -49,9 +49,7 @@ export function convertGrade(
 // Get the display grade for a climb based on user's settings
 export function getDisplayGrade(climb: Climb, settings: GradeSettings): string {
   const sourceSystem = detectGradeSystem(climb.grade, climb.type);
-  const targetSystem = climb.type === 'boulder'
-    ? settings.boulderSystem
-    : settings.routeSystem;
+  const targetSystem = climb.type === 'boulder' ? settings.boulderSystem : settings.routeSystem;
 
   return convertGrade(climb.grade, climb.type, sourceSystem, targetSystem);
 }
@@ -66,9 +64,14 @@ export function getGradeIndex(grade: string, type: ClimbType, settings: GradeSet
 // Get the secondary grade (the grade in the alternate system)
 export function getSecondaryGrade(grade: string, type: ClimbType, settings: GradeSettings): string {
   const currentSystem = type === 'boulder' ? settings.boulderSystem : settings.routeSystem;
-  const alternateSystem = type === 'boulder'
-    ? (currentSystem === 'vscale' ? 'fontainebleau' : 'vscale')
-    : (currentSystem === 'yds' ? 'french' : 'yds');
+  const alternateSystem =
+    type === 'boulder'
+      ? currentSystem === 'vscale'
+        ? 'fontainebleau'
+        : 'vscale'
+      : currentSystem === 'yds'
+        ? 'french'
+        : 'yds';
 
   return convertGrade(grade, type, currentSystem, alternateSystem);
 }
@@ -101,7 +104,9 @@ export function aggregateGradesByType(climbs: Climb[]): TypeGradeBreakdown {
   (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
     result[type] = Object.entries(countMap[type])
       .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
-      .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
+      .sort(
+        (a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type)
+      );
   });
 
   return result;

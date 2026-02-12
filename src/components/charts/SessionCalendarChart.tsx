@@ -16,10 +16,10 @@ const gap = 2;
 
 const INTENSITY_COLORS = [
   colors.surfaceSecondary, // 0 - no activity
-  '#0d3a5c',              // 1 - low
-  '#0f5a8a',              // 2 - medium-low
-  '#1a7ab8',              // 3 - medium-high
-  colors.primary,         // 4 - high
+  '#0d3a5c', // 1 - low
+  '#0f5a8a', // 2 - medium-low
+  '#1a7ab8', // 3 - medium-high
+  colors.primary, // 4 - high
 ];
 
 export default function SessionCalendarChart({ climbs, type }: Props) {
@@ -60,10 +60,7 @@ export default function SessionCalendarChart({ climbs, type }: Props) {
       <View style={styles.calendarWrapper}>
         <View style={[styles.weekdayLabels, { gap }]}>
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
-            <Text
-              key={i}
-              style={[styles.weekdayLabel, { height: cellSize, lineHeight: cellSize }]}
-            >
+            <Text key={i} style={[styles.weekdayLabel, { height: cellSize, lineHeight: cellSize }]}>
               {label}
             </Text>
           ))}
@@ -96,10 +93,7 @@ export default function SessionCalendarChart({ climbs, type }: Props) {
           {data.monthLabels.map((monthLabel, index) => (
             <Text
               key={index}
-              style={[
-                styles.monthLabel,
-                { left: monthLabel.weekIndex * (cellSize + gap) },
-              ]}
+              style={[styles.monthLabel, { left: monthLabel.weekIndex * (cellSize + gap) }]}
             >
               {monthLabel.label}
             </Text>

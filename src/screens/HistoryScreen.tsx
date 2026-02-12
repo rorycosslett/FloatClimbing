@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Modal,
-  Image,
-} from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -59,7 +51,19 @@ function formatSessionDate(timestamp: string): string {
   }
 }
 
-function GradePill({ grade, count, type, gradeSettings, variant }: { grade: string; count: number; type: ClimbType; gradeSettings: GradeSettings; variant: 'send' | 'attempt' }) {
+function GradePill({
+  grade,
+  count,
+  type,
+  gradeSettings,
+  variant,
+}: {
+  grade: string;
+  count: number;
+  type: ClimbType;
+  gradeSettings: GradeSettings;
+  variant: 'send' | 'attempt';
+}) {
   const displayGrade = getDisplayGrade({ grade, type } as Climb, gradeSettings);
   const gradientColors = getGradeGradientColors(grade, type, gradeSettings);
 
@@ -67,7 +71,8 @@ function GradePill({ grade, count, type, gradeSettings, variant }: { grade: stri
     return (
       <View style={styles.attemptPill}>
         <Text style={styles.gradePillText}>
-          {displayGrade}{count > 1 ? ` ×${count}` : ''}
+          {displayGrade}
+          {count > 1 ? ` ×${count}` : ''}
         </Text>
       </View>
     );
@@ -81,7 +86,8 @@ function GradePill({ grade, count, type, gradeSettings, variant }: { grade: stri
       style={styles.gradePill}
     >
       <Text style={styles.gradePillText}>
-        {displayGrade}{count > 1 ? ` ×${count}` : ''}
+        {displayGrade}
+        {count > 1 ? ` ×${count}` : ''}
       </Text>
     </LinearGradient>
   );
@@ -125,7 +131,14 @@ function TypeGradeSection({
       <Text style={styles.typeSectionLabel}>{typeLabel}</Text>
       <View style={styles.gradePillsContainer}>
         {visiblePills.map(({ grade, count, variant }, idx) => (
-          <GradePill key={`${grade}-${variant}-${idx}`} grade={grade} count={count} type={type} gradeSettings={gradeSettings} variant={variant} />
+          <GradePill
+            key={`${grade}-${variant}-${idx}`}
+            grade={grade}
+            count={count}
+            type={type}
+            gradeSettings={gradeSettings}
+            variant={variant}
+          />
         ))}
         {hasMore && !expanded && (
           <Pressable onPress={onToggleExpand} hitSlop={8}>
@@ -152,7 +165,11 @@ export default function HistoryScreen() {
   const { climbs, deleteSession, isLoading, getSessionName, sessionMetadata } = useClimbs();
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
-  const [actionMenuSession, setActionMenuSession] = useState<{ id: string; startTime: string; photoUrl?: string } | null>(null);
+  const [actionMenuSession, setActionMenuSession] = useState<{
+    id: string;
+    startTime: string;
+    photoUrl?: string;
+  } | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   const toggleGradeExpand = (sessionId: string, type: ClimbType) => {
@@ -228,27 +245,26 @@ export default function HistoryScreen() {
   });
 
   // Build session data from climbs
-  const sessions: SessionData[] = Object.keys(sessionClimbs)
-    .map((sessionId) => {
-      const sClimbs = sessionClimbs[sessionId].sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      const times = sClimbs.map((c) => new Date(c.timestamp).getTime());
-      const startTime = new Date(Math.min(...times)).toISOString();
-      const endTime = new Date(Math.max(...times)).toISOString();
+  const sessions: SessionData[] = Object.keys(sessionClimbs).map((sessionId) => {
+    const sClimbs = sessionClimbs[sessionId].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    const times = sClimbs.map((c) => new Date(c.timestamp).getTime());
+    const startTime = new Date(Math.min(...times)).toISOString();
+    const endTime = new Date(Math.max(...times)).toISOString();
 
-      return {
-        id: sessionId,
-        climbs: sClimbs,
-        sends: sClimbs.filter((c) => c.status !== 'attempt').length,
-        attempts: sClimbs.filter((c) => c.status === 'attempt').length,
-        startTime,
-        endTime,
-        durationMs: Math.max(...times) - Math.min(...times),
-        gradesByType: aggregateGradesByType(sClimbs),
-        photoUrl: sessionMetadata[sessionId]?.photoUrl,
-      };
-    });
+    return {
+      id: sessionId,
+      climbs: sClimbs,
+      sends: sClimbs.filter((c) => c.status !== 'attempt').length,
+      attempts: sClimbs.filter((c) => c.status === 'attempt').length,
+      startTime,
+      endTime,
+      durationMs: Math.max(...times) - Math.min(...times),
+      gradesByType: aggregateGradesByType(sClimbs),
+      photoUrl: sessionMetadata[sessionId]?.photoUrl,
+    };
+  });
 
   // Add empty sessions from metadata (sessions with no climbs)
   const sessionIdsWithClimbs = new Set(Object.keys(sessionClimbs));
@@ -293,10 +309,7 @@ export default function HistoryScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>History</Text>
-          <Pressable
-            onPress={() => navigation.navigate('Settings')}
-            style={styles.settingsButton}
-          >
+          <Pressable onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}>
             <Ionicons name="settings-outline" size={24} color={colors.text} />
           </Pressable>
         </View>
@@ -304,76 +317,83 @@ export default function HistoryScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {sessions.map((session) => (
-            <Pressable
-              key={session.id}
-              style={styles.sessionCard}
-              onPress={() => navigation.navigate('EditSession', {
+          <Pressable
+            key={session.id}
+            style={styles.sessionCard}
+            onPress={() =>
+              navigation.navigate('EditSession', {
                 sessionId: session.id,
                 startTime: session.startTime,
                 photoUrl: session.photoUrl,
-              })}
-            >
-              {/* Header: Title and date/time */}
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitleSection}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {getSessionName(session.id, session.startTime)}
-                  </Text>
-                  <Pressable
-                    style={styles.menuButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleOpenActionMenu(session.id, session.startTime, session.photoUrl);
-                    }}
-                    hitSlop={12}
-                  >
-                    <Text style={styles.menuButtonText}>•••</Text>
-                  </Pressable>
-                </View>
-                <Text style={styles.cardSubtitle}>
-                  {formatSessionDate(session.startTime)} at {formatTime(session.startTime)} · {formatDuration(session.durationMs)}
+              })
+            }
+          >
+            {/* Header: Title and date/time */}
+            <View style={styles.cardHeader}>
+              <View style={styles.cardTitleSection}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {getSessionName(session.id, session.startTime)}
                 </Text>
+                <Pressable
+                  style={styles.menuButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleOpenActionMenu(session.id, session.startTime, session.photoUrl);
+                  }}
+                  hitSlop={12}
+                >
+                  <Text style={styles.menuButtonText}>•••</Text>
+                </Pressable>
               </View>
+              <Text style={styles.cardSubtitle}>
+                {formatSessionDate(session.startTime)} at {formatTime(session.startTime)} ·{' '}
+                {formatDuration(session.durationMs)}
+              </Text>
+            </View>
 
-              {session.photoUrl && (
-                <Image source={{ uri: session.photoUrl }} style={styles.sessionPhoto} />
-              )}
+            {session.photoUrl && (
+              <Image source={{ uri: session.photoUrl }} style={styles.sessionPhoto} />
+            )}
 
-              {/* Stats row */}
-              <View style={styles.statsRow}>
-                <Text style={styles.sendsStat}>{session.sends} {session.sends === 1 ? 'send' : 'sends'}</Text>
-                <Text style={styles.statsSeparator}> · </Text>
-                <Text style={styles.attemptsStat}>{session.attempts} {session.attempts === 1 ? 'attempt' : 'attempts'}</Text>
+            {/* Stats row */}
+            <View style={styles.statsRow}>
+              <Text style={styles.sendsStat}>
+                {session.sends} {session.sends === 1 ? 'send' : 'sends'}
+              </Text>
+              <Text style={styles.statsSeparator}> · </Text>
+              <Text style={styles.attemptsStat}>
+                {session.attempts} {session.attempts === 1 ? 'attempt' : 'attempts'}
+              </Text>
+            </View>
+
+            {/* Grade breakdown by type */}
+            {hasGrades(session) && (
+              <View style={styles.gradeBreakdownSection}>
+                <TypeGradeSection
+                  type="boulder"
+                  grades={session.gradesByType.boulder}
+                  expanded={expandedGrades.has(`${session.id}-boulder`)}
+                  onToggleExpand={() => toggleGradeExpand(session.id, 'boulder')}
+                  gradeSettings={settings.grades}
+                />
+                <TypeGradeSection
+                  type="sport"
+                  grades={session.gradesByType.sport}
+                  expanded={expandedGrades.has(`${session.id}-sport`)}
+                  onToggleExpand={() => toggleGradeExpand(session.id, 'sport')}
+                  gradeSettings={settings.grades}
+                />
+                <TypeGradeSection
+                  type="trad"
+                  grades={session.gradesByType.trad}
+                  expanded={expandedGrades.has(`${session.id}-trad`)}
+                  onToggleExpand={() => toggleGradeExpand(session.id, 'trad')}
+                  gradeSettings={settings.grades}
+                />
               </View>
-
-              {/* Grade breakdown by type */}
-              {hasGrades(session) && (
-                <View style={styles.gradeBreakdownSection}>
-                  <TypeGradeSection
-                    type="boulder"
-                    grades={session.gradesByType.boulder}
-                    expanded={expandedGrades.has(`${session.id}-boulder`)}
-                    onToggleExpand={() => toggleGradeExpand(session.id, 'boulder')}
-                    gradeSettings={settings.grades}
-                  />
-                  <TypeGradeSection
-                    type="sport"
-                    grades={session.gradesByType.sport}
-                    expanded={expandedGrades.has(`${session.id}-sport`)}
-                    onToggleExpand={() => toggleGradeExpand(session.id, 'sport')}
-                    gradeSettings={settings.grades}
-                  />
-                  <TypeGradeSection
-                    type="trad"
-                    grades={session.gradesByType.trad}
-                    expanded={expandedGrades.has(`${session.id}-trad`)}
-                    onToggleExpand={() => toggleGradeExpand(session.id, 'trad')}
-                    gradeSettings={settings.grades}
-                  />
-                </View>
-              )}
-            </Pressable>
-          ))}
+            )}
+          </Pressable>
+        ))}
       </ScrollView>
 
       <Modal

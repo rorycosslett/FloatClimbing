@@ -49,8 +49,19 @@ export default function LogScreen() {
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [sessionListExpanded, setSessionListExpanded] = useState(true);
-  const { climbs, addClimb, deleteClimb, activeSession, startSession, endSession, pauseSession, resumeSession, getSessionClimbCount, renameSession, updateSessionPhotoUrl } =
-    useClimbs();
+  const {
+    climbs,
+    addClimb,
+    deleteClimb,
+    activeSession,
+    startSession,
+    endSession,
+    pauseSession,
+    resumeSession,
+    getSessionClimbCount,
+    renameSession,
+    updateSessionPhotoUrl,
+  } = useClimbs();
 
   const currentGrades = getGradesForSettings(selectedType, settings.grades);
 
@@ -160,11 +171,13 @@ export default function LogScreen() {
     // Post to Strava (fire-and-forget, no-ops if not connected)
     if (summarySnapshot) {
       const resolvedName = name || generateSessionName(summarySnapshot.startTime);
-      stravaService.createActivity(summarySnapshot, resolvedName, settings.grades)
+      stravaService
+        .createActivity(summarySnapshot, resolvedName, settings.grades)
         .then((result) => {
           console.log('Strava activity posted:', result.ok);
           if (result.ok && result.activityId && sessionId) {
-            stravaService.saveStravaActivityId(sessionId, result.activityId)
+            stravaService
+              .saveStravaActivityId(sessionId, result.activityId)
               .catch((err) => console.error('Strava save ID error:', err));
           }
         })
@@ -224,7 +237,6 @@ export default function LogScreen() {
         </View>
       </View>
 
-
       <View style={styles.splitContainer}>
         <View style={styles.columnHeaders}>
           <Text style={styles.columnHeaderText}>Attempts</Text>
@@ -246,8 +258,17 @@ export default function LogScreen() {
                 >
                   <View style={[styles.attemptPillInner, !activeSession && styles.pillDisabled]}>
                     <View style={styles.pillContent}>
-                      <Text style={[styles.pillText, !activeSession && styles.pillTextDisabled]}>{grade}</Text>
-                      <Text style={[styles.pillSecondaryText, !activeSession && styles.pillTextDisabled]}>{secondaryGrade}</Text>
+                      <Text style={[styles.pillText, !activeSession && styles.pillTextDisabled]}>
+                        {grade}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.pillSecondaryText,
+                          !activeSession && styles.pillTextDisabled,
+                        ]}
+                      >
+                        {secondaryGrade}
+                      </Text>
                     </View>
                   </View>
                 </Pressable>
@@ -275,7 +296,9 @@ export default function LogScreen() {
                     <View style={[styles.sendPillGradient, styles.pillDisabled]}>
                       <View style={styles.pillContent}>
                         <Text style={[styles.pillText, styles.pillTextDisabled]}>{grade}</Text>
-                        <Text style={[styles.pillSecondaryText, styles.pillTextDisabled]}>{secondaryGrade}</Text>
+                        <Text style={[styles.pillSecondaryText, styles.pillTextDisabled]}>
+                          {secondaryGrade}
+                        </Text>
                       </View>
                     </View>
                   )}
@@ -292,9 +315,7 @@ export default function LogScreen() {
               onPress={() => setSessionListExpanded(!sessionListExpanded)}
             >
               <Text style={styles.sessionCardTitle}>Session Active</Text>
-              <Text style={styles.sessionCardChevron}>
-                {sessionListExpanded ? '▼' : '▲'}
-              </Text>
+              <Text style={styles.sessionCardChevron}>{sessionListExpanded ? '▼' : '▲'}</Text>
             </Pressable>
 
             <View style={styles.sessionCardStats}>
@@ -344,10 +365,7 @@ export default function LogScreen() {
       </View>
 
       {!activeSession && (
-        <Pressable
-          style={[styles.fab, styles.fabStart]}
-          onPress={handleStartSession}
-        >
+        <Pressable style={[styles.fab, styles.fabStart]} onPress={handleStartSession}>
           <Text style={styles.fabIcon}>▶</Text>
           <Text style={styles.fabText}>Start Session</Text>
         </Pressable>

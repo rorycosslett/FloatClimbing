@@ -173,10 +173,7 @@ export class SocialService {
     return this.getProfile(this.userId);
   }
 
-  async updateProfile(updates: {
-    firstName?: string;
-    lastName?: string;
-  }): Promise<boolean> {
+  async updateProfile(updates: { firstName?: string; lastName?: string }): Promise<boolean> {
     if (!this.userId) return false;
 
     const dbUpdates: Record<string, string | undefined> = {};
@@ -191,10 +188,7 @@ export class SocialService {
       dbUpdates.display_name = computedDisplayName;
     }
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(dbUpdates)
-      .eq('id', this.userId);
+    const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', this.userId);
 
     if (error) {
       console.error('Error updating profile:', error);
@@ -227,9 +221,7 @@ export class SocialService {
       return null;
     }
 
-    const { data: urlData } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(filePath);
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
     const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
@@ -269,9 +261,7 @@ export class SocialService {
       return null;
     }
 
-    const { data: urlData } = supabase.storage
-      .from('session-photos')
-      .getPublicUrl(filePath);
+    const { data: urlData } = supabase.storage.from('session-photos').getPublicUrl(filePath);
 
     const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
@@ -294,9 +284,7 @@ export class SocialService {
 
     const filePath = `${this.userId}/${sessionId}.jpg`;
 
-    const { error: deleteError } = await supabase.storage
-      .from('session-photos')
-      .remove([filePath]);
+    const { error: deleteError } = await supabase.storage.from('session-photos').remove([filePath]);
 
     if (deleteError) {
       console.error('Error deleting session photo:', deleteError);
@@ -427,11 +415,13 @@ export class SocialService {
 
     let query = supabase
       .from('activity_feed_items')
-      .select(`
+      .select(
+        `
         *,
         profiles!activity_feed_items_user_id_fkey(*),
         sessions!activity_feed_items_session_id_fkey(*)
-      `)
+      `
+      )
       .order('created_at', { ascending: false })
       .limit(limit + 1); // Fetch one extra to check if there's more
 
@@ -487,10 +477,7 @@ export class SocialService {
     };
   }
 
-  async createActivityItem(
-    sessionId: string,
-    metadata: ActivityMetadata
-  ): Promise<boolean> {
+  async createActivityItem(sessionId: string, metadata: ActivityMetadata): Promise<boolean> {
     if (!this.userId) return false;
 
     const { error } = await supabase.from('activity_feed_items').insert({

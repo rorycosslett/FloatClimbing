@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  ReactNode,
+} from 'react';
 import * as Crypto from 'expo-crypto';
 import {
   Climb,
@@ -34,7 +42,12 @@ interface ClimbContextType {
   activeSession: Session | null;
   sessionMetadata: Record<string, SessionMetadata>;
   addClimb: (grade: string, type: ClimbType, status: ClimbStatus) => void;
-  addClimbToSession: (sessionId: string, grade: string, type: ClimbType, status: ClimbStatus) => void;
+  addClimbToSession: (
+    sessionId: string,
+    grade: string,
+    type: ClimbType,
+    status: ClimbStatus
+  ) => void;
   deleteClimb: (id: string) => void;
   deleteSession: (sessionId: string) => void;
   startSession: () => void;
@@ -122,7 +135,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       hasInitialSynced.current = true;
       syncData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading]);
 
   const syncData = useCallback(async () => {
@@ -185,7 +198,12 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addClimbToSession = (sessionId: string, grade: string, type: ClimbType, status: ClimbStatus) => {
+  const addClimbToSession = (
+    sessionId: string,
+    grade: string,
+    type: ClimbType,
+    status: ClimbStatus
+  ) => {
     const newClimb: Climb = {
       id: Crypto.randomUUID(),
       grade,
@@ -245,7 +263,10 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
     // Sync to cloud if authenticated
     if (user) {
-      sessionSyncPromise.current = syncService.upsertSession(session).catch(console.error).then(() => {});
+      sessionSyncPromise.current = syncService
+        .upsertSession(session)
+        .catch(console.error)
+        .then(() => {});
     }
   };
 
@@ -306,7 +327,9 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
       gradesByType[type] = Object.entries(countMap[type])
         .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
-        .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
+        .sort(
+          (a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type)
+        );
     });
 
     // Detect achievements (PRs)
@@ -326,9 +349,20 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     };
 
     // Resolve session name: use provided name, existing metadata name, or generate from start time
-    const resolvedName = name || sessionMetadata[activeSession.id]?.name || generateSessionName(activeSession.startTime);
+    const resolvedName =
+      name ||
+      sessionMetadata[activeSession.id]?.name ||
+      generateSessionName(activeSession.startTime);
 
-    const updatedMetadata = { ...sessionMetadata, [activeSession.id]: { ...sessionMetadata[activeSession.id], name: resolvedName, startTime: activeSession.startTime, endTime } };
+    const updatedMetadata = {
+      ...sessionMetadata,
+      [activeSession.id]: {
+        ...sessionMetadata[activeSession.id],
+        name: resolvedName,
+        startTime: activeSession.startTime,
+        endTime,
+      },
+    };
     setSessionMetadata(updatedMetadata);
     saveSessionMetadata(updatedMetadata);
 
@@ -340,21 +374,26 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         name: resolvedName,
       };
       // Await session upsert before creating activity item (foreign key dependency)
-      syncService.upsertSession(completedSession).then(() => {
-        // Create activity feed item for followers to see (only for public sessions)
-        const sessionIsPublic = sessionMetadata[activeSession.id]?.isPublic !== false;
-        if (sends.length > 0 && sessionIsPublic) {
-          socialService.createActivityItem(activeSession.id, {
-            totalClimbs: sessionClimbs.length,
-            sends: sends.length,
-            attempts: attempts.length,
-            duration,
-            maxBoulderGrade: maxGradeByType.boulder,
-            maxSportGrade: maxGradeByType.sport,
-            maxTradGrade: maxGradeByType.trad,
-          }).catch(console.error);
-        }
-      }).catch(console.error);
+      syncService
+        .upsertSession(completedSession)
+        .then(() => {
+          // Create activity feed item for followers to see (only for public sessions)
+          const sessionIsPublic = sessionMetadata[activeSession.id]?.isPublic !== false;
+          if (sends.length > 0 && sessionIsPublic) {
+            socialService
+              .createActivityItem(activeSession.id, {
+                totalClimbs: sessionClimbs.length,
+                sends: sends.length,
+                attempts: attempts.length,
+                duration,
+                maxBoulderGrade: maxGradeByType.boulder,
+                maxSportGrade: maxGradeByType.sport,
+                maxTradGrade: maxGradeByType.trad,
+              })
+              .catch(console.error);
+          }
+        })
+        .catch(console.error);
     }
 
     setActiveSession(null);
@@ -420,7 +459,9 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
       gradesByType[type] = Object.entries(countMap[type])
         .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
-        .sort((a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type));
+        .sort(
+          (a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type)
+        );
     });
 
     // Detect achievements (PRs)
@@ -483,14 +524,16 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         const lastClimb = sessionClimbs.reduce((a, b) =>
           new Date(a.timestamp) > new Date(b.timestamp) ? a : b
         );
-        syncService.upsertSession({
-          id: sessionId,
-          startTime: firstClimb.timestamp,
-          endTime: lastClimb.timestamp,
-          name,
-          photoUrl: existing.photoUrl,
-          isPublic: existing.isPublic,
-        }).catch(console.error);
+        syncService
+          .upsertSession({
+            id: sessionId,
+            startTime: firstClimb.timestamp,
+            endTime: lastClimb.timestamp,
+            name,
+            photoUrl: existing.photoUrl,
+            isPublic: existing.isPublic,
+          })
+          .catch(console.error);
       }
     }
   };
@@ -539,7 +582,11 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
           const endTime = new Date(Math.max(...times)).toISOString();
           const duration = new Date(endTime).getTime() - new Date(startTime).getTime();
 
-          const maxGradeByType: { boulder: string | null; sport: string | null; trad: string | null } = {
+          const maxGradeByType: {
+            boulder: string | null;
+            sport: string | null;
+            trad: string | null;
+          } = {
             boulder: null,
             sport: null,
             trad: null,
@@ -553,15 +600,17 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
             }
           });
 
-          socialService.createActivityItem(sessionId, {
-            totalClimbs: sessionClimbs.length,
-            sends: sends.length,
-            attempts: attempts.length,
-            duration,
-            maxBoulderGrade: maxGradeByType.boulder,
-            maxSportGrade: maxGradeByType.sport,
-            maxTradGrade: maxGradeByType.trad,
-          }).catch(console.error);
+          socialService
+            .createActivityItem(sessionId, {
+              totalClimbs: sessionClimbs.length,
+              sends: sends.length,
+              attempts: attempts.length,
+              duration,
+              maxBoulderGrade: maxGradeByType.boulder,
+              maxSportGrade: maxGradeByType.sport,
+              maxTradGrade: maxGradeByType.trad,
+            })
+            .catch(console.error);
         }
       }
     }

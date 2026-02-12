@@ -23,13 +23,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadSettings().then((data) => {
-      setSettings(data);
-      setIsLoading(false);
-    }).catch((error) => {
-      console.error('Error loading settings:', error);
-      setIsLoading(false);
-    });
+    loadSettings()
+      .then((data) => {
+        setSettings(data);
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error loading settings:', error);
+        setIsLoading(false);
+      });
   }, []);
 
   const setBoulderSystem = (system: BoulderGradeSystem) => {

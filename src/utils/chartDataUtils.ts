@@ -20,7 +20,20 @@ function getWeekStart(date: Date): Date {
  * Format a date as a short label (e.g., "Jan 5")
  */
 function formatWeekLabel(date: Date): string {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
@@ -303,7 +316,20 @@ export function getSessionCalendarData(
 
   // Generate month labels
   const monthLabels: { label: string; weekIndex: number }[] = [];
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   let lastMonth = -1;
 
   weeks.forEach((week, weekIndex) => {

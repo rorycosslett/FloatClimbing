@@ -27,7 +27,10 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -37,7 +40,11 @@ serve(async (req) => {
 
     const { grant_type, code, refresh_token } = await req.json();
 
-    if (!grant_type || (grant_type === 'authorization_code' && !code) || (grant_type === 'refresh_token' && !refresh_token)) {
+    if (
+      !grant_type ||
+      (grant_type === 'authorization_code' && !code) ||
+      (grant_type === 'refresh_token' && !refresh_token)
+    ) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

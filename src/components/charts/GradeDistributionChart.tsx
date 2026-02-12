@@ -18,10 +18,7 @@ const CONTAINER_PADDING = 32; // 16px padding on each side
 const maxBarWidth = (screenWidth - CONTAINER_PADDING - LABEL_WIDTH - VALUE_LABEL_WIDTH * 2) / 2;
 
 export default function GradeDistributionChart({ climbs, type }: Props) {
-  const data = useMemo(
-    () => getGradeDistributionData(climbs, type, []),
-    [climbs, type]
-  );
+  const data = useMemo(() => getGradeDistributionData(climbs, type, []), [climbs, type]);
 
   if (data.length === 0) {
     return (
@@ -76,13 +73,7 @@ export default function GradeDistributionChart({ climbs, type }: Props) {
               <View style={styles.barContainer}>
                 {/* Outline bar for total (attempts context) */}
                 {d.attempts > 0 && (
-                  <View
-                    style={[
-                      styles.outlineBar,
-                      styles.outlineBarLeft,
-                      { width: totalWidth },
-                    ]}
-                  />
+                  <View style={[styles.outlineBar, styles.outlineBarLeft, { width: totalWidth }]} />
                 )}
                 {/* Gradient bar for sends */}
                 {d.sends > 0 && (
@@ -90,10 +81,7 @@ export default function GradeDistributionChart({ climbs, type }: Props) {
                     colors={d.gradientColors}
                     start={{ x: 1, y: 0 }}
                     end={{ x: 0, y: 1 }}
-                    style={[
-                      styles.bar,
-                      { width: sendsWidth },
-                    ]}
+                    style={[styles.bar, { width: sendsWidth }]}
                   />
                 )}
               </View>
@@ -105,11 +93,7 @@ export default function GradeDistributionChart({ climbs, type }: Props) {
                 {/* Outline bar for total (attempts context) */}
                 {d.attempts > 0 && (
                   <View
-                    style={[
-                      styles.outlineBar,
-                      styles.outlineBarRight,
-                      { width: totalWidth },
-                    ]}
+                    style={[styles.outlineBar, styles.outlineBarRight, { width: totalWidth }]}
                   />
                 )}
                 {/* Gradient bar for sends */}
@@ -118,16 +102,14 @@ export default function GradeDistributionChart({ climbs, type }: Props) {
                     colors={d.gradientColors}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.bar,
-                      styles.barRight,
-                      { width: sendsWidth },
-                    ]}
+                    style={[styles.bar, styles.barRight, { width: sendsWidth }]}
                   />
                 )}
               </View>
               <View style={styles.valueLabelContainer}>
-                <Text style={styles.valueLabel}>{d.sends}/{d.total}</Text>
+                <Text style={styles.valueLabel}>
+                  {d.sends}/{d.total}
+                </Text>
               </View>
             </View>
           );

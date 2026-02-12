@@ -28,7 +28,10 @@ export function SwipeableClimbPill({
   const displayGrade = getDisplayGrade(climb, gradeSettings);
   const gradientColors = getGradeGradientColors(climb.grade, climb.type, gradeSettings);
 
-  const renderRightActions = (_progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+  const renderRightActions = (
+    _progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => {
     const opacity = dragX.interpolate({
       inputRange: [-80, -40, 0],
       outputRange: [1, 0.5, 0],
@@ -52,9 +55,7 @@ export function SwipeableClimbPill({
   const pillContent = (
     <View style={styles.climbPillContent}>
       <Text style={styles.climbPillGrade}>{displayGrade}</Text>
-      {climb.type !== 'boulder' && (
-        <Text style={styles.climbPillType}>{climb.type}</Text>
-      )}
+      {climb.type !== 'boulder' && <Text style={styles.climbPillType}>{climb.type}</Text>}
       <Text style={styles.climbPillTime}>{formatTime(climb.timestamp)}</Text>
     </View>
   );
@@ -62,9 +63,7 @@ export function SwipeableClimbPill({
   return (
     <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
       {climb.status === 'attempt' ? (
-        <View style={styles.climbAttemptPill}>
-          {pillContent}
-        </View>
+        <View style={styles.climbAttemptPill}>{pillContent}</View>
       ) : (
         <LinearGradient
           colors={gradientColors}

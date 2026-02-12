@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, TextInput, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  TextInput,
+  Image,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -116,10 +125,7 @@ export default function ProfileSettingsScreen() {
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : currentProfile?.avatarUrl ? (
-                <Image
-                  source={{ uri: currentProfile.avatarUrl }}
-                  style={styles.avatarImage}
-                />
+                <Image source={{ uri: currentProfile.avatarUrl }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
                   <Ionicons name="person" size={32} color={colors.textMuted} />
@@ -129,17 +135,13 @@ export default function ProfileSettingsScreen() {
                 <Ionicons name="camera" size={14} color="#fff" />
               </View>
             </View>
-            <Text style={styles.avatarHelpText}>
-              Tap to change your profile photo
-            </Text>
+            <Text style={styles.avatarHelpText}>Tap to change your profile photo</Text>
           </Pressable>
         </View>
 
         <Text style={styles.sectionTitle}>Name</Text>
         <View style={styles.card}>
-          <Text style={styles.nameHelpText}>
-            Set your name so friends can find you
-          </Text>
+          <Text style={styles.nameHelpText}>Set your name so friends can find you</Text>
           <View style={styles.nameFieldsContainer}>
             <View style={styles.nameField}>
               <Text style={styles.nameFieldLabel}>First Name</Text>
@@ -172,9 +174,7 @@ export default function ProfileSettingsScreen() {
               onPress={handleSaveName}
               disabled={nameSaving}
             >
-              <Text style={styles.saveNameButtonText}>
-                {nameSaving ? 'Saving...' : 'Save'}
-              </Text>
+              <Text style={styles.saveNameButtonText}>{nameSaving ? 'Saving...' : 'Save'}</Text>
             </Pressable>
           )}
         </View>

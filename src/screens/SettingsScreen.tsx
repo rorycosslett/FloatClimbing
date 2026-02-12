@@ -62,21 +62,17 @@ export default function SettingsScreen() {
   };
 
   const handleStravaDisconnect = () => {
-    Alert.alert(
-      'Disconnect Strava',
-      'Sessions will no longer be posted to Strava.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await stravaService.disconnect();
-            if (success) setStravaConnected(false);
-          },
+    Alert.alert('Disconnect Strava', 'Sessions will no longer be posted to Strava.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Disconnect',
+        style: 'destructive',
+        onPress: async () => {
+          const success = await stravaService.disconnect();
+          if (success) setStravaConnected(false);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleDeleteAccount = () => {
@@ -117,24 +113,20 @@ export default function SettingsScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('Sign out error:', error);
-            }
-          },
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch (error) {
+            console.error('Sign out error:', error);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (

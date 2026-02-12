@@ -56,7 +56,8 @@ function GradePill({
     return (
       <View style={styles.attemptPill}>
         <Text style={styles.gradePillText}>
-          {displayGrade}{count > 1 ? ` ×${count}` : ''}
+          {displayGrade}
+          {count > 1 ? ` ×${count}` : ''}
         </Text>
       </View>
     );
@@ -70,13 +71,16 @@ function GradePill({
       style={styles.gradePill}
     >
       <Text style={styles.gradePillText}>
-        {displayGrade}{count > 1 ? ` ×${count}` : ''}
+        {displayGrade}
+        {count > 1 ? ` ×${count}` : ''}
       </Text>
     </LinearGradient>
   );
 }
 
-function buildPills(grades: GradeCount[]): { grade: string; count: number; variant: 'send' | 'attempt' }[] {
+function buildPills(
+  grades: GradeCount[]
+): { grade: string; count: number; variant: 'send' | 'attempt' }[] {
   const pills: { grade: string; count: number; variant: 'send' | 'attempt' }[] = [];
   grades.slice(0, 4).forEach(({ grade, sends, attempts }) => {
     if (sends > 0) {
@@ -89,11 +93,18 @@ function buildPills(grades: GradeCount[]): { grade: string; count: number; varia
   return pills;
 }
 
-export default function ActivityFeedCard({ item, onProfilePress, isOwnSession, onMenuPress }: ActivityFeedCardProps) {
+export default function ActivityFeedCard({
+  item,
+  onProfilePress,
+  isOwnSession,
+  onMenuPress,
+}: ActivityFeedCardProps) {
   const { settings } = useSettings();
   const { user, metadata, createdAt, climbs } = item;
 
-  const gradesByType = climbs ? aggregateGradesByType(climbs) : { boulder: [], sport: [], trad: [] };
+  const gradesByType = climbs
+    ? aggregateGradesByType(climbs)
+    : { boulder: [], sport: [], trad: [] };
   const boulderPills = buildPills(gradesByType.boulder);
   const sportPills = buildPills(gradesByType.sport);
   const tradPills = buildPills(gradesByType.trad);
@@ -102,10 +113,7 @@ export default function ActivityFeedCard({ item, onProfilePress, isOwnSession, o
     <Pressable style={styles.container} onPress={() => onProfilePress(item.userId)}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          style={styles.userInfo}
-          onPress={() => onProfilePress(item.userId)}
-        >
+        <Pressable style={styles.userInfo} onPress={() => onProfilePress(item.userId)}>
           {user?.avatarUrl ? (
             <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
           ) : (
@@ -115,7 +123,9 @@ export default function ActivityFeedCard({ item, onProfilePress, isOwnSession, o
           )}
           <View>
             <Text style={styles.userName}>{user?.displayName || 'Climber'}</Text>
-            <Text style={styles.timestamp}>{formatSessionTimestamp(item.session?.startTime || createdAt)}</Text>
+            <Text style={styles.timestamp}>
+              {formatSessionTimestamp(item.session?.startTime || createdAt)}
+            </Text>
           </View>
         </Pressable>
         {isOwnSession && onMenuPress && (
