@@ -4,11 +4,12 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
 import { useAuth } from './AuthContext';
 import { socialService } from '../services/socialService';
-import { Profile, ProfileWithStats, ActivityFeedItem } from '../types';
+import { Profile, ProfileWithStats, ActivityFeedItem, FeedComment } from '../types';
 
 interface SocialContextType {
   // Feed state
@@ -36,6 +37,12 @@ interface SocialContextType {
   removeFeedItem: (sessionId: string) => void;
   getUserSessions: typeof socialService.getUserSessions;
   getSessionClimbs: typeof socialService.getSessionClimbs;
+  // Like & comment actions
+  likeFeedItem: (feedItemId: string) => Promise<void>;
+  unlikeFeedItem: (feedItemId: string) => Promise<void>;
+  getComments: (feedItemId: string) => Promise<FeedComment[]>;
+  addComment: (feedItemId: string, content: string) => Promise<FeedComment | null>;
+  deleteComment: (feedItemId: string, commentId: string) => Promise<boolean>;
 }
 
 const SocialContext = createContext<SocialContextType | undefined>(undefined);
@@ -172,31 +179,125 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     return socialService.deleteSessionPhoto(sessionId);
   }, []);
 
+  const likeFeedItem = useCallback(async (feedItemId: string) => {
+    const success = await socialService.likeFeedItem(feedItemId);
+    if (success) {
+      setFeed((prev) =>
+        prev.map((item) =>
+          item.id === feedItemId
+            ? { ...item, isLikedByMe: true, likeCount: item.likeCount + 1 }
+            : item
+        )
+      );
+    }
+  }, []);
+
+  const unlikeFeedItem = useCallback(async (feedItemId: string) => {
+    const success = await socialService.unlikeFeedItem(feedItemId);
+    if (success) {
+      setFeed((prev) =>
+        prev.map((item) =>
+          item.id === feedItemId
+            ? { ...item, isLikedByMe: false, likeCount: Math.max(0, item.likeCount - 1) }
+            : item
+        )
+      );
+    }
+  }, []);
+
+  const getComments = useCallback(async (feedItemId: string): Promise<FeedComment[]> => {
+    return socialService.getComments(feedItemId);
+  }, []);
+
+  const addComment = useCallback(
+    async (feedItemId: string, content: string): Promise<FeedComment | null> => {
+      const comment = await socialService.addComment(feedItemId, content);
+      if (comment) {
+        setFeed((prev) =>
+          prev.map((item) =>
+            item.id === feedItemId
+              ? { ...item, commentCount: item.commentCount + 1 }
+              : item
+          )
+        );
+      }
+      return comment;
+    },
+    []
+  );
+
+  const deleteComment = useCallback(
+    async (feedItemId: string, commentId: string): Promise<boolean> => {
+      const success = await socialService.deleteComment(commentId);
+      if (success) {
+        setFeed((prev) =>
+          prev.map((item) =>
+            item.id === feedItemId
+              ? { ...item, commentCount: Math.max(0, item.commentCount - 1) }
+              : item
+          )
+        );
+      }
+      return success;
+    },
+    []
+  );
+
+  const value = useMemo(
+    () => ({
+      feed,
+      feedLoading,
+      feedError,
+      hasMoreFeed,
+      currentProfile,
+      refreshFeed,
+      loadMoreFeed,
+      followUser,
+      unfollowUser,
+      searchUsers,
+      getProfile,
+      getFollowers: socialService.getFollowers.bind(socialService),
+      getFollowing: socialService.getFollowing.bind(socialService),
+      updateProfile,
+      uploadAvatar,
+      uploadSessionPhoto,
+      deleteSessionPhoto,
+      removeFeedItem,
+      getUserSessions: socialService.getUserSessions.bind(socialService),
+      getSessionClimbs: socialService.getSessionClimbs.bind(socialService),
+      likeFeedItem,
+      unlikeFeedItem,
+      getComments,
+      addComment,
+      deleteComment,
+    }),
+    [
+      feed,
+      feedLoading,
+      feedError,
+      hasMoreFeed,
+      currentProfile,
+      refreshFeed,
+      loadMoreFeed,
+      followUser,
+      unfollowUser,
+      searchUsers,
+      getProfile,
+      updateProfile,
+      uploadAvatar,
+      uploadSessionPhoto,
+      deleteSessionPhoto,
+      removeFeedItem,
+      likeFeedItem,
+      unlikeFeedItem,
+      getComments,
+      addComment,
+      deleteComment,
+    ]
+  );
+
   return (
-    <SocialContext.Provider
-      value={{
-        feed,
-        feedLoading,
-        feedError,
-        hasMoreFeed,
-        currentProfile,
-        refreshFeed,
-        loadMoreFeed,
-        followUser,
-        unfollowUser,
-        searchUsers,
-        getProfile,
-        getFollowers: socialService.getFollowers.bind(socialService),
-        getFollowing: socialService.getFollowing.bind(socialService),
-        updateProfile,
-        uploadAvatar,
-        uploadSessionPhoto,
-        deleteSessionPhoto,
-        removeFeedItem,
-        getUserSessions: socialService.getUserSessions.bind(socialService),
-        getSessionClimbs: socialService.getSessionClimbs.bind(socialService),
-      }}
-    >
+    <SocialContext.Provider value={value}>
       {children}
     </SocialContext.Provider>
   );

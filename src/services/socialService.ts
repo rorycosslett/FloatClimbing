@@ -5,6 +5,7 @@ import {
   ActivityFeedItem,
   ActivityMetadata,
   FeedPage,
+  FeedComment,
   Session,
   Climb,
   ClimbType,
@@ -32,6 +33,16 @@ interface DbActivityFeedItem {
   activity_type: string;
   session_id: string | null;
   metadata: ActivityMetadata;
+  created_at: string;
+  like_count: number;
+  comment_count: number;
+}
+
+interface DbFeedComment {
+  id: string;
+  feed_item_id: string;
+  user_id: string;
+  content: string;
   created_at: string;
 }
 
@@ -100,7 +111,8 @@ function fromDbActivityFeedItem(
   db: DbActivityFeedItem,
   profile?: DbProfile,
   session?: DbSession,
-  climbs?: DbClimb[]
+  climbs?: DbClimb[],
+  isLikedByMe?: boolean
 ): ActivityFeedItem {
   return {
     id: db.id,
@@ -112,6 +124,20 @@ function fromDbActivityFeedItem(
     user: profile ? fromDbProfile(profile) : undefined,
     session: session ? fromDbSession(session) : undefined,
     climbs: climbs ? climbs.map(fromDbClimb) : undefined,
+    likeCount: db.like_count ?? 0,
+    commentCount: db.comment_count ?? 0,
+    isLikedByMe: isLikedByMe ?? false,
+  };
+}
+
+function fromDbFeedComment(db: DbFeedComment, profile?: DbProfile): FeedComment {
+  return {
+    id: db.id,
+    feedItemId: db.feed_item_id,
+    userId: db.user_id,
+    content: db.content,
+    createdAt: db.created_at,
+    user: profile ? fromDbProfile(profile) : undefined,
   };
 }
 
@@ -320,15 +346,56 @@ export class SocialService {
       return [];
     }
 
-    // Get stats for each profile
-    const profiles = await Promise.all(
-      (data || []).map(async (profile) => {
-        const fullProfile = await this.getProfile(profile.id);
-        return fullProfile;
-      })
-    );
+    if (!data || data.length === 0) return [];
 
-    return profiles.filter((p): p is ProfileWithStats => p !== null);
+    const profileIds = data.map((p) => p.id);
+
+    // Batch-fetch follower counts, following counts, and isFollowing in parallel
+    const [followerData, followingData, isFollowingData] = await Promise.all([
+      supabase
+        .from('follows')
+        .select('following_id')
+        .in('following_id', profileIds),
+      supabase
+        .from('follows')
+        .select('follower_id')
+        .in('follower_id', profileIds),
+      this.userId
+        ? supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', this.userId)
+            .in('following_id', profileIds)
+        : Promise.resolve({ data: [] as { following_id: string }[] }),
+    ]);
+
+    // Count followers per profile
+    const followerCounts = new Map<string, number>();
+    (followerData.data || []).forEach((row) => {
+      const id = (row as { following_id: string }).following_id;
+      followerCounts.set(id, (followerCounts.get(id) || 0) + 1);
+    });
+
+    // Count following per profile
+    const followingCounts = new Map<string, number>();
+    (followingData.data || []).forEach((row) => {
+      const id = (row as { follower_id: string }).follower_id;
+      followingCounts.set(id, (followingCounts.get(id) || 0) + 1);
+    });
+
+    // Build isFollowing set
+    const followingSet = new Set<string>();
+    const isFollowingRows = 'data' in isFollowingData ? isFollowingData.data : isFollowingData;
+    (isFollowingRows || []).forEach((row) => {
+      followingSet.add((row as { following_id: string }).following_id);
+    });
+
+    return data.map((profile) => ({
+      ...fromDbProfile(profile),
+      followerCount: followerCounts.get(profile.id) || 0,
+      followingCount: followingCounts.get(profile.id) || 0,
+      isFollowing: followingSet.has(profile.id),
+    }));
   }
 
   // ============================================
@@ -461,12 +528,25 @@ export class SocialService {
       }
     }
 
+    // Batch-fetch which items the current user has liked
+    const feedItemIds = items.map((item: Record<string, unknown>) => item.id as string);
+    const likedSet = new Set<string>();
+    if (feedItemIds.length > 0) {
+      const { data: likedIds } = await supabase.rpc('get_liked_feed_item_ids', {
+        item_ids: feedItemIds,
+      });
+      if (likedIds) {
+        (likedIds as string[]).forEach((id) => likedSet.add(id));
+      }
+    }
+
     const feedItems: ActivityFeedItem[] = items.map((item: Record<string, unknown>) =>
       fromDbActivityFeedItem(
         item as unknown as DbActivityFeedItem,
         item.profiles as unknown as DbProfile,
         item.sessions as unknown as DbSession,
-        item.session_id ? climbsMap.get(item.session_id as string) : undefined
+        item.session_id ? climbsMap.get(item.session_id as string) : undefined,
+        likedSet.has(item.id as string)
       )
     );
 
@@ -566,6 +646,107 @@ export class SocialService {
     }
 
     return (data || []).map(fromDbClimb);
+  }
+
+  // ============================================
+  // LIKE OPERATIONS
+  // ============================================
+
+  async likeFeedItem(feedItemId: string): Promise<boolean> {
+    if (!this.userId) return false;
+
+    const { error } = await supabase.from('feed_likes').insert({
+      feed_item_id: feedItemId,
+      user_id: this.userId,
+    });
+
+    if (error) {
+      // Unique constraint violation means already liked
+      if (error.code === '23505') return true;
+      console.error('Error liking feed item:', error);
+      return false;
+    }
+    return true;
+  }
+
+  async unlikeFeedItem(feedItemId: string): Promise<boolean> {
+    if (!this.userId) return false;
+
+    const { error } = await supabase
+      .from('feed_likes')
+      .delete()
+      .eq('feed_item_id', feedItemId)
+      .eq('user_id', this.userId);
+
+    if (error) {
+      console.error('Error unliking feed item:', error);
+      return false;
+    }
+    return true;
+  }
+
+  // ============================================
+  // COMMENT OPERATIONS
+  // ============================================
+
+  async getComments(feedItemId: string): Promise<FeedComment[]> {
+    const { data, error } = await supabase
+      .from('feed_comments')
+      .select('*, profiles!feed_comments_user_id_fkey(*)')
+      .eq('feed_item_id', feedItemId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching comments:', error);
+      return [];
+    }
+
+    return (data || []).map((row: Record<string, unknown>) =>
+      fromDbFeedComment(
+        row as unknown as DbFeedComment,
+        row.profiles as unknown as DbProfile
+      )
+    );
+  }
+
+  async addComment(feedItemId: string, content: string): Promise<FeedComment | null> {
+    if (!this.userId || !content.trim()) return null;
+
+    const { data, error } = await supabase
+      .from('feed_comments')
+      .insert({
+        feed_item_id: feedItemId,
+        user_id: this.userId,
+        content: content.trim(),
+      })
+      .select('*, profiles!feed_comments_user_id_fkey(*)')
+      .single();
+
+    if (error) {
+      console.error('Error adding comment:', error);
+      return null;
+    }
+
+    return fromDbFeedComment(
+      data as unknown as DbFeedComment,
+      (data as Record<string, unknown>).profiles as unknown as DbProfile
+    );
+  }
+
+  async deleteComment(commentId: string): Promise<boolean> {
+    if (!this.userId) return false;
+
+    const { error } = await supabase
+      .from('feed_comments')
+      .delete()
+      .eq('id', commentId)
+      .eq('user_id', this.userId);
+
+    if (error) {
+      console.error('Error deleting comment:', error);
+      return false;
+    }
+    return true;
   }
 }
 

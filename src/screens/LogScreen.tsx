@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,14 +21,14 @@ import { SessionSummaryModal } from '../components/SessionSummaryModal';
 import { SwipeableClimbPill } from '../components/SwipeableClimbPill';
 import { stravaService } from '../services/stravaService';
 import { generateSessionName } from '../utils/sessionUtils';
+import { AnimatedSegmentControl } from '../components/AnimatedSegmentControl';
+import { useSwipeableType } from '../hooks/useSwipeableType';
 
 type RootStackParamList = {
   Main: undefined;
   Settings: undefined;
   EditSession: { sessionId: string; startTime: string; photoUrl?: string };
 };
-
-const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -49,6 +51,10 @@ export default function LogScreen() {
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [sessionListExpanded, setSessionListExpanded] = useState(true);
+  const [segmentWidth, setSegmentWidth] = useState(0);
+
+  const { panGesture, contentAnimatedStyle, indicatorAnimatedStyle, handleSegmentPress } =
+    useSwipeableType(selectedType, setSelectedType, segmentWidth);
   const {
     climbs,
     addClimb,
@@ -222,22 +228,16 @@ export default function LogScreen() {
             <Ionicons name="settings-outline" size={24} color={colors.text} />
           </Pressable>
         </View>
-        <View style={styles.segmentControl}>
-          {CLIMB_TYPES.map((type) => (
-            <Pressable
-              key={type}
-              style={[styles.segmentBtn, selectedType === type && styles.segmentBtnActive]}
-              onPress={() => setSelectedType(type)}
-            >
-              <Text style={[styles.segmentText, selectedType === type && styles.segmentTextActive]}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <AnimatedSegmentControl
+          selectedType={selectedType}
+          onTypeChange={handleSegmentPress}
+          indicatorAnimatedStyle={indicatorAnimatedStyle}
+          onSegmentWidthChange={setSegmentWidth}
+        />
       </View>
 
-      <View style={styles.splitContainer}>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.splitContainer, contentAnimatedStyle]}>
         <View style={styles.columnHeaders}>
           <Text style={styles.columnHeaderText}>Attempts</Text>
           <Text style={styles.columnHeaderText}>Sends</Text>
@@ -362,7 +362,8 @@ export default function LogScreen() {
             </Pressable>
           </View>
         )}
-      </View>
+      </Animated.View>
+      </GestureDetector>
 
       {!activeSession && (
         <Pressable style={[styles.fab, styles.fabStart]} onPress={handleStartSession}>
@@ -411,35 +412,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     padding: 4,
-  },
-  segmentControl: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: 8,
-    padding: 2,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  segmentBtnActive: {
-    backgroundColor: colors.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  segmentText: {
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-    color: colors.text,
-  },
-  segmentTextActive: {
-    color: colors.primary,
   },
   splitContainer: {
     flex: 1,

@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   ReactNode,
 } from 'react';
@@ -20,9 +21,13 @@ import {
 } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  loadClimbs,
-  saveClimbs,
-  clearClimbs,
+  loadAllClimbs,
+  saveAllClimbs,
+  saveClimbsForSession,
+  saveClimbIndex,
+  loadClimbIndex,
+  deleteClimbsForSession,
+  clearAllClimbs,
   loadSession,
   saveSession,
   loadSessionMetadata,
@@ -91,7 +96,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
         // If a different user logged in, clear stale local data
         if (user?.id && lastUserId && lastUserId !== user.id) {
-          await clearClimbs();
+          await clearAllClimbs();
           await saveSession(null);
           await saveSessionMetadata({});
           await AsyncStorage.setItem(LAST_USER_KEY, user.id);
@@ -106,15 +111,15 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         }
 
         const [climbData, sessionData, metadataData] = await Promise.all([
-          loadClimbs(),
+          loadAllClimbs(),
           loadSession(),
           loadSessionMetadata(),
         ]);
 
         // Remove any loose climbs (climbs without a sessionId)
-        const validClimbs = climbData.filter((c) => c.sessionId);
+        const validClimbs = climbData.filter((c: Climb) => c.sessionId);
         if (validClimbs.length !== climbData.length) {
-          saveClimbs(validClimbs);
+          saveAllClimbs(validClimbs);
         }
         setClimbs(validClimbs);
         setActiveSession(sessionData);
@@ -168,7 +173,7 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
 
       // Update local state with synced data
       setClimbs(syncedClimbs);
-      saveClimbs(syncedClimbs);
+      saveAllClimbs(syncedClimbs);
     } catch (error) {
       console.error('Sync error:', error);
     } finally {
@@ -176,84 +181,115 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     }
   }, [user, climbs, sessionMetadata, isSyncing]);
 
-  const addClimb = (grade: string, type: ClimbType, status: ClimbStatus) => {
-    if (!activeSession) {
-      return; // Cannot add climbs without an active session
-    }
-    const newClimb: Climb = {
-      id: Crypto.randomUUID(),
-      grade,
-      type,
-      status,
-      timestamp: new Date().toISOString(),
-      sessionId: activeSession.id,
-    };
-    const updated = [...climbs, newClimb];
-    setClimbs(updated);
-    saveClimbs(updated);
-
-    // Sync to cloud if authenticated
-    if (user) {
-      syncService.upsertClimb(newClimb).catch(console.error);
-    }
-  };
-
-  const addClimbToSession = (
-    sessionId: string,
-    grade: string,
-    type: ClimbType,
-    status: ClimbStatus
-  ) => {
-    const newClimb: Climb = {
-      id: Crypto.randomUUID(),
-      grade,
-      type,
-      status,
-      timestamp: new Date().toISOString(),
-      sessionId,
-    };
-    const updated = [...climbs, newClimb];
-    setClimbs(updated);
-    saveClimbs(updated);
-
-    // Sync to cloud if authenticated (wait for session to be synced first)
-    if (user) {
-      sessionSyncPromise.current.then(() => {
-        syncService.upsertClimb(newClimb).catch(console.error);
+  const addClimb = useCallback(
+    (grade: string, type: ClimbType, status: ClimbStatus) => {
+      if (!activeSession) {
+        return; // Cannot add climbs without an active session
+      }
+      const newClimb: Climb = {
+        id: Crypto.randomUUID(),
+        grade,
+        type,
+        status,
+        timestamp: new Date().toISOString(),
+        sessionId: activeSession.id,
+      };
+      const updated = [...climbs, newClimb];
+      setClimbs(updated);
+      const sessionClimbsToSave = updated.filter((c) => c.sessionId === activeSession.id);
+      saveClimbsForSession(activeSession.id, sessionClimbsToSave);
+      // Ensure index includes this session
+      loadClimbIndex().then((ids) => {
+        if (!ids.includes(activeSession.id)) {
+          saveClimbIndex([...ids, activeSession.id]);
+        }
       });
-    }
-  };
 
-  const deleteClimb = (id: string) => {
-    const updated = climbs.filter((c) => c.id !== id);
-    setClimbs(updated);
-    saveClimbs(updated);
+      // Sync to cloud if authenticated
+      if (user) {
+        syncService.upsertClimb(newClimb).catch(console.error);
+      }
+    },
+    [activeSession, climbs, user]
+  );
 
-    // Sync to cloud if authenticated
-    if (user) {
-      syncService.deleteClimb(id).catch(console.error);
-    }
-  };
+  const addClimbToSession = useCallback(
+    (sessionId: string, grade: string, type: ClimbType, status: ClimbStatus) => {
+      const newClimb: Climb = {
+        id: Crypto.randomUUID(),
+        grade,
+        type,
+        status,
+        timestamp: new Date().toISOString(),
+        sessionId,
+      };
+      const updated = [...climbs, newClimb];
+      setClimbs(updated);
+      const sessionClimbsToSave = updated.filter((c) => c.sessionId === sessionId);
+      saveClimbsForSession(sessionId, sessionClimbsToSave);
+      // Ensure index includes this session
+      loadClimbIndex().then((ids) => {
+        if (!ids.includes(sessionId)) {
+          saveClimbIndex([...ids, sessionId]);
+        }
+      });
 
-  const deleteSession = (sessionId: string) => {
-    // Remove all climbs belonging to this session
-    const updatedClimbs = climbs.filter((c) => c.sessionId !== sessionId);
-    setClimbs(updatedClimbs);
-    saveClimbs(updatedClimbs);
+      // Sync to cloud if authenticated (wait for session to be synced first)
+      if (user) {
+        sessionSyncPromise.current.then(() => {
+          syncService.upsertClimb(newClimb).catch(console.error);
+        });
+      }
+    },
+    [climbs, user]
+  );
 
-    // Remove session metadata
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { [sessionId]: _removed, ...remainingMetadata } = sessionMetadata;
-    setSessionMetadata(remainingMetadata);
-    saveSessionMetadata(remainingMetadata);
+  const deleteClimb = useCallback(
+    (id: string) => {
+      const climbToDelete = climbs.find((c) => c.id === id);
+      const updated = climbs.filter((c) => c.id !== id);
+      setClimbs(updated);
+      if (climbToDelete) {
+        const sessionClimbsToSave = updated.filter(
+          (c) => c.sessionId === climbToDelete.sessionId
+        );
+        saveClimbsForSession(climbToDelete.sessionId, sessionClimbsToSave);
+      }
 
-    // Sync to cloud if authenticated
-    if (user) {
-      syncService.deleteSession(sessionId).catch(console.error);
-    }
-  };
+      // Sync to cloud if authenticated
+      if (user) {
+        syncService.deleteClimb(id).catch(console.error);
+      }
+    },
+    [climbs, user]
+  );
 
-  const startSession = () => {
+  const deleteSession = useCallback(
+    (sessionId: string) => {
+      // Remove all climbs belonging to this session
+      const updatedClimbs = climbs.filter((c) => c.sessionId !== sessionId);
+      setClimbs(updatedClimbs);
+      deleteClimbsForSession(sessionId);
+      // Update the index to remove this session
+      loadClimbIndex().then((ids) => {
+        saveClimbIndex(ids.filter((id) => id !== sessionId));
+      });
+
+      // Remove session metadata
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [sessionId]: _removed, ...remainingMetadata } = sessionMetadata;
+      setSessionMetadata(remainingMetadata);
+      saveSessionMetadata(remainingMetadata);
+
+      // Sync to cloud if authenticated
+      if (user) {
+        syncService.deleteSession(sessionId).catch(console.error);
+      }
+    },
+    [climbs, sessionMetadata, user]
+  );
+
+  const startSession = useCallback(() => {
     const session: Session = {
       id: Crypto.randomUUID(),
       startTime: new Date().toISOString(),
@@ -268,147 +304,153 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
         .catch(console.error)
         .then(() => {});
     }
-  };
+  }, [user]);
 
-  const endSession = (name?: string): SessionSummary | null => {
-    if (!activeSession) return null;
+  const endSession = useCallback(
+    (name?: string): SessionSummary | null => {
+      if (!activeSession) return null;
 
-    const sessionClimbs = climbs.filter((c) => c.sessionId === activeSession.id);
+      const sessionClimbs = climbs.filter((c) => c.sessionId === activeSession.id);
 
-    const endTime = new Date().toISOString();
-    const totalElapsed = new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
-    const pausedDuration = activeSession.pausedDuration || 0;
-    const duration = totalElapsed - pausedDuration;
+      const endTime = new Date().toISOString();
+      const totalElapsed =
+        new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
+      const pausedDuration = activeSession.pausedDuration || 0;
+      const duration = totalElapsed - pausedDuration;
 
-    const sends = sessionClimbs.filter((c) => c.status === 'send');
-    const attempts = sessionClimbs.filter((c) => c.status === 'attempt');
+      const sends = sessionClimbs.filter((c) => c.status === 'send');
+      const attempts = sessionClimbs.filter((c) => c.status === 'attempt');
 
-    // Calculate max grade per type for sends in this session
-    const maxGradeByType: SessionSummary['maxGradeByType'] = {
-      boulder: null,
-      sport: null,
-      trad: null,
-    };
+      // Calculate max grade per type for sends in this session
+      const maxGradeByType: SessionSummary['maxGradeByType'] = {
+        boulder: null,
+        sport: null,
+        trad: null,
+      };
 
-    sends.forEach((climb) => {
-      const idx = getNormalizedGradeIndex(climb.grade, climb.type);
-      const currentMax = maxGradeByType[climb.type];
-      const currentMaxIdx = currentMax ? getNormalizedGradeIndex(currentMax, climb.type) : -1;
+      sends.forEach((climb) => {
+        const idx = getNormalizedGradeIndex(climb.grade, climb.type);
+        const currentMax = maxGradeByType[climb.type];
+        const currentMaxIdx = currentMax ? getNormalizedGradeIndex(currentMax, climb.type) : -1;
 
-      if (idx > currentMaxIdx) {
-        maxGradeByType[climb.type] = climb.grade;
-      }
-    });
+        if (idx > currentMaxIdx) {
+          maxGradeByType[climb.type] = climb.grade;
+        }
+      });
 
-    // Aggregate grades by type for grade pills display
-    const gradesByType: TypeGradeBreakdown = {
-      boulder: [],
-      sport: [],
-      trad: [],
-    };
+      // Aggregate grades by type for grade pills display
+      const gradesByType: TypeGradeBreakdown = {
+        boulder: [],
+        sport: [],
+        trad: [],
+      };
 
-    const countMap: Record<ClimbType, Record<string, { sends: number; attempts: number }>> = {
-      boulder: {},
-      sport: {},
-      trad: {},
-    };
+      const countMap: Record<ClimbType, Record<string, { sends: number; attempts: number }>> = {
+        boulder: {},
+        sport: {},
+        trad: {},
+      };
 
-    sessionClimbs.forEach((climb) => {
-      if (!countMap[climb.type][climb.grade]) {
-        countMap[climb.type][climb.grade] = { sends: 0, attempts: 0 };
-      }
-      if (climb.status === 'attempt') {
-        countMap[climb.type][climb.grade].attempts++;
-      } else {
-        countMap[climb.type][climb.grade].sends++;
-      }
-    });
+      sessionClimbs.forEach((climb) => {
+        if (!countMap[climb.type][climb.grade]) {
+          countMap[climb.type][climb.grade] = { sends: 0, attempts: 0 };
+        }
+        if (climb.status === 'attempt') {
+          countMap[climb.type][climb.grade].attempts++;
+        } else {
+          countMap[climb.type][climb.grade].sends++;
+        }
+      });
 
-    (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
-      gradesByType[type] = Object.entries(countMap[type])
-        .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
-        .sort(
-          (a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type)
-        );
-    });
+      (['boulder', 'sport', 'trad'] as ClimbType[]).forEach((type) => {
+        gradesByType[type] = Object.entries(countMap[type])
+          .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
+          .sort(
+            (a, b) =>
+              getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type)
+          );
+      });
 
-    // Detect achievements (PRs)
-    const achievements = detectAchievements(sessionClimbs, climbs, activeSession.id);
+      // Detect achievements (PRs)
+      const achievements = detectAchievements(sessionClimbs, climbs, activeSession.id);
 
-    const summary: SessionSummary = {
-      sessionId: activeSession.id,
-      duration,
-      startTime: activeSession.startTime,
-      endTime,
-      totalClimbs: sessionClimbs.length,
-      sends: sends.length,
-      attempts: attempts.length,
-      maxGradeByType,
-      gradesByType,
-      achievements,
-    };
-
-    // Resolve session name: use provided name, existing metadata name, or generate from start time
-    const resolvedName =
-      name ||
-      sessionMetadata[activeSession.id]?.name ||
-      generateSessionName(activeSession.startTime);
-
-    const updatedMetadata = {
-      ...sessionMetadata,
-      [activeSession.id]: {
-        ...sessionMetadata[activeSession.id],
-        name: resolvedName,
+      const summary: SessionSummary = {
+        sessionId: activeSession.id,
+        duration,
         startTime: activeSession.startTime,
         endTime,
-      },
-    };
-    setSessionMetadata(updatedMetadata);
-    saveSessionMetadata(updatedMetadata);
-
-    // Sync completed session to cloud
-    if (user) {
-      const completedSession: Session = {
-        ...activeSession,
-        endTime,
-        name: resolvedName,
+        totalClimbs: sessionClimbs.length,
+        sends: sends.length,
+        attempts: attempts.length,
+        maxGradeByType,
+        gradesByType,
+        achievements,
       };
-      // Await session upsert before creating activity item (foreign key dependency)
-      syncService
-        .upsertSession(completedSession)
-        .then(() => {
-          // Create activity feed item for followers to see (only for public sessions)
-          const sessionIsPublic = sessionMetadata[activeSession.id]?.isPublic !== false;
-          if (sends.length > 0 && sessionIsPublic) {
-            socialService
-              .createActivityItem(activeSession.id, {
-                totalClimbs: sessionClimbs.length,
-                sends: sends.length,
-                attempts: attempts.length,
-                duration,
-                maxBoulderGrade: maxGradeByType.boulder,
-                maxSportGrade: maxGradeByType.sport,
-                maxTradGrade: maxGradeByType.trad,
-              })
-              .catch(console.error);
-          }
-        })
-        .catch(console.error);
-    }
 
-    setActiveSession(null);
-    saveSession(null);
+      // Resolve session name: use provided name, existing metadata name, or generate from start time
+      const resolvedName =
+        name ||
+        sessionMetadata[activeSession.id]?.name ||
+        generateSessionName(activeSession.startTime);
 
-    return summary;
-  };
+      const updatedMetadata = {
+        ...sessionMetadata,
+        [activeSession.id]: {
+          ...sessionMetadata[activeSession.id],
+          name: resolvedName,
+          startTime: activeSession.startTime,
+          endTime,
+        },
+      };
+      setSessionMetadata(updatedMetadata);
+      saveSessionMetadata(updatedMetadata);
 
-  const pauseSession = (): SessionSummary | null => {
+      // Sync completed session to cloud
+      if (user) {
+        const completedSession: Session = {
+          ...activeSession,
+          endTime,
+          name: resolvedName,
+        };
+        // Await session upsert before creating activity item (foreign key dependency)
+        syncService
+          .upsertSession(completedSession)
+          .then(() => {
+            // Create activity feed item for followers to see (only for public sessions)
+            const sessionIsPublic = sessionMetadata[activeSession.id]?.isPublic !== false;
+            if (sends.length > 0 && sessionIsPublic) {
+              socialService
+                .createActivityItem(activeSession.id, {
+                  totalClimbs: sessionClimbs.length,
+                  sends: sends.length,
+                  attempts: attempts.length,
+                  duration,
+                  maxBoulderGrade: maxGradeByType.boulder,
+                  maxSportGrade: maxGradeByType.sport,
+                  maxTradGrade: maxGradeByType.trad,
+                })
+                .catch(console.error);
+            }
+          })
+          .catch(console.error);
+      }
+
+      setActiveSession(null);
+      saveSession(null);
+
+      return summary;
+    },
+    [activeSession, climbs, sessionMetadata, user]
+  );
+
+  const pauseSession = useCallback((): SessionSummary | null => {
     if (!activeSession) return null;
 
     const sessionClimbs = climbs.filter((c) => c.sessionId === activeSession.id);
 
     const endTime = new Date().toISOString();
-    const totalElapsed = new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
+    const totalElapsed =
+      new Date(endTime).getTime() - new Date(activeSession.startTime).getTime();
     const pausedDuration = activeSession.pausedDuration || 0;
     const duration = totalElapsed - pausedDuration;
 
@@ -460,7 +502,8 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
       gradesByType[type] = Object.entries(countMap[type])
         .map(([grade, counts]) => ({ grade, sends: counts.sends, attempts: counts.attempts }))
         .sort(
-          (a, b) => getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type)
+          (a, b) =>
+            getNormalizedGradeIndex(b.grade, type) - getNormalizedGradeIndex(a.grade, type)
         );
     });
 
@@ -489,9 +532,9 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     saveSession(pausedSession);
 
     return summary;
-  };
+  }, [activeSession, climbs]);
 
-  const resumeSession = () => {
+  const resumeSession = useCallback(() => {
     if (!activeSession || !activeSession.pausedAt) return;
 
     const pausedAt = new Date(activeSession.pausedAt).getTime();
@@ -506,115 +549,129 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     };
     setActiveSession(resumedSession);
     saveSession(resumedSession);
-  };
+  }, [activeSession]);
 
-  const renameSession = (sessionId: string, name: string) => {
-    const existing = sessionMetadata[sessionId] || {};
-    const updatedMetadata = { ...sessionMetadata, [sessionId]: { ...existing, name } };
-    setSessionMetadata(updatedMetadata);
-    saveSessionMetadata(updatedMetadata);
+  const renameSession = useCallback(
+    (sessionId: string, name: string) => {
+      const existing = sessionMetadata[sessionId] || {};
+      const updatedMetadata = { ...sessionMetadata, [sessionId]: { ...existing, name } };
+      setSessionMetadata(updatedMetadata);
+      saveSessionMetadata(updatedMetadata);
 
-    // Sync updated name to backend
-    if (user) {
-      const sessionClimbs = climbs.filter((c) => c.sessionId === sessionId);
-      if (sessionClimbs.length > 0) {
-        const firstClimb = sessionClimbs.reduce((a, b) =>
-          new Date(a.timestamp) < new Date(b.timestamp) ? a : b
-        );
-        const lastClimb = sessionClimbs.reduce((a, b) =>
-          new Date(a.timestamp) > new Date(b.timestamp) ? a : b
-        );
-        syncService
-          .upsertSession({
-            id: sessionId,
-            startTime: firstClimb.timestamp,
-            endTime: lastClimb.timestamp,
-            name,
-            photoUrl: existing.photoUrl,
-            isPublic: existing.isPublic,
-          })
-          .catch(console.error);
-      }
-    }
-  };
-
-  const getSessionName = (sessionId: string, startTime: string): string => {
-    const metadata = sessionMetadata[sessionId];
-    if (metadata?.name) {
-      return metadata.name;
-    }
-    return generateSessionName(startTime);
-  };
-
-  const updateSessionPhotoUrl = (sessionId: string, photoUrl: string | null) => {
-    const existing = sessionMetadata[sessionId] || {};
-    const updatedMetadata = {
-      ...sessionMetadata,
-      [sessionId]: { ...existing, photoUrl: photoUrl || undefined },
-    };
-    setSessionMetadata(updatedMetadata);
-    saveSessionMetadata(updatedMetadata);
-  };
-
-  const updateSessionPrivacy = (sessionId: string, isPublic: boolean) => {
-    const existing = sessionMetadata[sessionId] || {};
-    const updatedMetadata = {
-      ...sessionMetadata,
-      [sessionId]: { ...existing, isPublic },
-    };
-    setSessionMetadata(updatedMetadata);
-    saveSessionMetadata(updatedMetadata);
-
-    if (user) {
-      socialService.updateSessionPrivacy(sessionId, isPublic).catch(console.error);
-
-      if (!isPublic) {
-        // Remove from feed when making private
-        socialService.deleteActivityItemBySession(sessionId).catch(console.error);
-      } else {
-        // When making public, create activity item if session has sends
+      // Sync updated name to backend
+      if (user) {
         const sessionClimbs = climbs.filter((c) => c.sessionId === sessionId);
-        const sends = sessionClimbs.filter((c) => c.status === 'send');
-        if (sends.length > 0) {
-          const attempts = sessionClimbs.filter((c) => c.status === 'attempt');
-          const times = sessionClimbs.map((c) => new Date(c.timestamp).getTime());
-          const startTime = new Date(Math.min(...times)).toISOString();
-          const endTime = new Date(Math.max(...times)).toISOString();
-          const duration = new Date(endTime).getTime() - new Date(startTime).getTime();
-
-          const maxGradeByType: {
-            boulder: string | null;
-            sport: string | null;
-            trad: string | null;
-          } = {
-            boulder: null,
-            sport: null,
-            trad: null,
-          };
-          sends.forEach((climb) => {
-            const idx = getNormalizedGradeIndex(climb.grade, climb.type);
-            const currentMax = maxGradeByType[climb.type];
-            const currentMaxIdx = currentMax ? getNormalizedGradeIndex(currentMax, climb.type) : -1;
-            if (idx > currentMaxIdx) {
-              maxGradeByType[climb.type] = climb.grade;
-            }
-          });
-
-          socialService
-            .createActivityItem(sessionId, {
-              totalClimbs: sessionClimbs.length,
-              sends: sends.length,
-              attempts: attempts.length,
-              duration,
-              maxBoulderGrade: maxGradeByType.boulder,
-              maxSportGrade: maxGradeByType.sport,
-              maxTradGrade: maxGradeByType.trad,
+        if (sessionClimbs.length > 0) {
+          const firstClimb = sessionClimbs.reduce((a, b) =>
+            new Date(a.timestamp) < new Date(b.timestamp) ? a : b
+          );
+          const lastClimb = sessionClimbs.reduce((a, b) =>
+            new Date(a.timestamp) > new Date(b.timestamp) ? a : b
+          );
+          syncService
+            .upsertSession({
+              id: sessionId,
+              startTime: firstClimb.timestamp,
+              endTime: lastClimb.timestamp,
+              name,
+              photoUrl: existing.photoUrl,
+              isPublic: existing.isPublic,
             })
             .catch(console.error);
         }
       }
-    }
-  };
+    },
+    [sessionMetadata, climbs, user]
+  );
+
+  const getSessionName = useCallback(
+    (sessionId: string, startTime: string): string => {
+      const metadata = sessionMetadata[sessionId];
+      if (metadata?.name) {
+        return metadata.name;
+      }
+      return generateSessionName(startTime);
+    },
+    [sessionMetadata]
+  );
+
+  const updateSessionPhotoUrl = useCallback(
+    (sessionId: string, photoUrl: string | null) => {
+      const existing = sessionMetadata[sessionId] || {};
+      const updatedMetadata = {
+        ...sessionMetadata,
+        [sessionId]: { ...existing, photoUrl: photoUrl || undefined },
+      };
+      setSessionMetadata(updatedMetadata);
+      saveSessionMetadata(updatedMetadata);
+    },
+    [sessionMetadata]
+  );
+
+  const updateSessionPrivacy = useCallback(
+    (sessionId: string, isPublic: boolean) => {
+      const existing = sessionMetadata[sessionId] || {};
+      const updatedMetadata = {
+        ...sessionMetadata,
+        [sessionId]: { ...existing, isPublic },
+      };
+      setSessionMetadata(updatedMetadata);
+      saveSessionMetadata(updatedMetadata);
+
+      if (user) {
+        socialService.updateSessionPrivacy(sessionId, isPublic).catch(console.error);
+
+        if (!isPublic) {
+          // Remove from feed when making private
+          socialService.deleteActivityItemBySession(sessionId).catch(console.error);
+        } else {
+          // When making public, create activity item if session has sends
+          const sessionClimbs = climbs.filter((c) => c.sessionId === sessionId);
+          const sends = sessionClimbs.filter((c) => c.status === 'send');
+          if (sends.length > 0) {
+            const attempts = sessionClimbs.filter((c) => c.status === 'attempt');
+            const times = sessionClimbs.map((c) => new Date(c.timestamp).getTime());
+            const startTime = new Date(Math.min(...times)).toISOString();
+            const endTime = new Date(Math.max(...times)).toISOString();
+            const duration = new Date(endTime).getTime() - new Date(startTime).getTime();
+
+            const maxGradeByType: {
+              boulder: string | null;
+              sport: string | null;
+              trad: string | null;
+            } = {
+              boulder: null,
+              sport: null,
+              trad: null,
+            };
+            sends.forEach((climb) => {
+              const idx = getNormalizedGradeIndex(climb.grade, climb.type);
+              const currentMax = maxGradeByType[climb.type];
+              const currentMaxIdx = currentMax
+                ? getNormalizedGradeIndex(currentMax, climb.type)
+                : -1;
+              if (idx > currentMaxIdx) {
+                maxGradeByType[climb.type] = climb.grade;
+              }
+            });
+
+            socialService
+              .createActivityItem(sessionId, {
+                totalClimbs: sessionClimbs.length,
+                sends: sends.length,
+                attempts: attempts.length,
+                duration,
+                maxBoulderGrade: maxGradeByType.boulder,
+                maxSportGrade: maxGradeByType.sport,
+                maxTradGrade: maxGradeByType.trad,
+              })
+              .catch(console.error);
+          }
+        }
+      }
+    },
+    [sessionMetadata, climbs, user]
+  );
 
   function detectAchievements(
     sessionClimbs: Climb[],
@@ -675,38 +732,57 @@ export function ClimbProvider({ children }: { children: ReactNode }) {
     return achievements;
   }
 
-  const getSessionClimbCount = () => {
+  const getSessionClimbCount = useCallback(() => {
     if (!activeSession) return 0;
     return climbs.filter((c) => c.sessionId === activeSession.id).length;
-  };
+  }, [activeSession, climbs]);
 
-  return (
-    <ClimbContext.Provider
-      value={{
-        climbs,
-        isLoading,
-        isSyncing,
-        activeSession,
-        sessionMetadata,
-        addClimb,
-        addClimbToSession,
-        deleteClimb,
-        deleteSession,
-        startSession,
-        endSession,
-        pauseSession,
-        resumeSession,
-        getSessionClimbCount,
-        renameSession,
-        getSessionName,
-        updateSessionPhotoUrl,
-        updateSessionPrivacy,
-        syncData,
-      }}
-    >
-      {children}
-    </ClimbContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      climbs,
+      isLoading,
+      isSyncing,
+      activeSession,
+      sessionMetadata,
+      addClimb,
+      addClimbToSession,
+      deleteClimb,
+      deleteSession,
+      startSession,
+      endSession,
+      pauseSession,
+      resumeSession,
+      getSessionClimbCount,
+      renameSession,
+      getSessionName,
+      updateSessionPhotoUrl,
+      updateSessionPrivacy,
+      syncData,
+    }),
+    [
+      climbs,
+      isLoading,
+      isSyncing,
+      activeSession,
+      sessionMetadata,
+      addClimb,
+      addClimbToSession,
+      deleteClimb,
+      deleteSession,
+      startSession,
+      endSession,
+      pauseSession,
+      resumeSession,
+      getSessionClimbCount,
+      renameSession,
+      getSessionName,
+      updateSessionPhotoUrl,
+      updateSessionPrivacy,
+      syncData,
+    ]
   );
+
+  return <ClimbContext.Provider value={contextValue}>{children}</ClimbContext.Provider>;
 }
 
 export function useClimbs() {

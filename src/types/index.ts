@@ -144,6 +144,19 @@ export interface ActivityFeedItem {
   user?: Profile;
   session?: Session;
   climbs?: Climb[];
+  // Likes & comments
+  likeCount: number;
+  commentCount: number;
+  isLikedByMe: boolean;
+}
+
+export interface FeedComment {
+  id: string;
+  feedItemId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  user?: Profile;
 }
 
 export interface FeedPage {

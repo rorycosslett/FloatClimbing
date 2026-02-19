@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Image } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +21,8 @@ import GradeProgressionChart from '../components/charts/GradeProgressionChart';
 import WeeklyActivityChart from '../components/charts/WeeklyActivityChart';
 import GradeDistributionChart from '../components/charts/GradeDistributionChart';
 import SessionCalendarChart from '../components/charts/SessionCalendarChart';
+import { AnimatedSegmentControl } from '../components/AnimatedSegmentControl';
+import { useSwipeableType } from '../hooks/useSwipeableType';
 
 type RootStackParamList = {
   Main: undefined;
@@ -28,7 +32,6 @@ type RootStackParamList = {
 };
 
 type TabType = 'history' | 'insights';
-const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
 
 function formatTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString([], {
@@ -56,9 +59,8 @@ function formatSessionDate(timestamp: string): string {
     return 'Yesterday';
   } else {
     return date.toLocaleDateString('en-US', {
-      month: 'long',
+      month: 'short',
       day: 'numeric',
-      year: 'numeric',
     });
   }
 }
@@ -329,8 +331,7 @@ function HistoryContent() {
                 </Pressable>
               </View>
               <Text style={styles.cardSubtitle}>
-                {formatSessionDate(session.startTime)} at {formatTime(session.startTime)} .{' '}
-                {formatDuration(session.durationMs)}
+                {formatSessionDate(session.startTime)} at {formatTime(session.startTime)}
               </Text>
             </View>
 
@@ -475,6 +476,10 @@ function InsightsContent() {
   const { settings } = useSettings();
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const { climbs, isLoading } = useClimbs();
+  const [segmentWidth, setSegmentWidth] = useState(0);
+
+  const { panGesture, contentAnimatedStyle, indicatorAnimatedStyle, handleSegmentPress } =
+    useSwipeableType(selectedType, setSelectedType, segmentWidth);
 
   const stats = useMemo(() => {
     const typeClimbs = climbs.filter((c) => c.type === selectedType);
@@ -562,81 +567,78 @@ function InsightsContent() {
   return (
     <>
       <View style={styles.typeSelector}>
-        <View style={styles.segmentControl}>
-          {CLIMB_TYPES.map((type) => (
-            <Pressable
-              key={type}
-              style={[styles.segmentBtn, selectedType === type && styles.segmentBtnActive]}
-              onPress={() => setSelectedType(type)}
-            >
-              <Text style={[styles.segmentText, selectedType === type && styles.segmentTextActive]}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <AnimatedSegmentControl
+          selectedType={selectedType}
+          onTypeChange={handleSegmentPress}
+          indicatorAnimatedStyle={indicatorAnimatedStyle}
+          onSegmentWidthChange={setSegmentWidth}
+        />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {climbs.length === 0 || stats.recentTotal === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>
-              No climbs logged yet.{'\n'}Log some climbs to see your report!
-            </Text>
-          </View>
-        ) : (
-          <>
-            <GradeDistributionChart climbs={climbs} type={selectedType} />
-            <SessionCalendarChart climbs={climbs} type={selectedType} />
-            <GradeProgressionChart climbs={climbs} type={selectedType} />
-            <WeeklyActivityChart climbs={climbs} type={selectedType} />
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Summary ({stats.weeksToShow} Weeks)</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentSends}</Text>
-                  <Text style={styles.statLabel}>Sends</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentAttempts}</Text>
-                  <Text style={styles.statLabel}>Attempts</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentMaxGrade}</Text>
-                  <Text style={styles.statLabel}>Highest Send</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentTotal}</Text>
-                  <Text style={styles.statLabel}>Total Climbs</Text>
-                </View>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[{ flex: 1 }, contentAnimatedStyle]}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+            {climbs.length === 0 || stats.recentTotal === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  No climbs logged yet.{'\n'}Log some climbs to see your report!
+                </Text>
               </View>
-            </View>
+            ) : (
+              <>
+                <GradeDistributionChart climbs={climbs} type={selectedType} />
+                <SessionCalendarChart climbs={climbs} type={selectedType} />
+                <GradeProgressionChart climbs={climbs} type={selectedType} />
+                <WeeklyActivityChart climbs={climbs} type={selectedType} />
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>All Time</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.allTimeSends}</Text>
-                  <Text style={styles.statLabel}>Total Sends</Text>
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Summary ({stats.weeksToShow} Weeks)</Text>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentSends}</Text>
+                      <Text style={styles.statLabel}>Sends</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentAttempts}</Text>
+                      <Text style={styles.statLabel}>Attempts</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentMaxGrade}</Text>
+                      <Text style={styles.statLabel}>Highest Send</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentTotal}</Text>
+                      <Text style={styles.statLabel}>Total Climbs</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.allTimeMaxGrade}</Text>
-                  <Text style={styles.statLabel}>Highest Send</Text>
+
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>All Time</Text>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.allTimeSends}</Text>
+                      <Text style={styles.statLabel}>Total Sends</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.allTimeMaxGrade}</Text>
+                      <Text style={styles.statLabel}>Highest Send</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.daysSinceFirst}</Text>
+                      <Text style={styles.statLabel}>Days Climbing</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.firstTick}</Text>
+                      <Text style={styles.statLabel}>First Tick</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.daysSinceFirst}</Text>
-                  <Text style={styles.statLabel}>Days Climbing</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.firstTick}</Text>
-                  <Text style={styles.statLabel}>First Tick</Text>
-                </View>
-              </View>
-            </View>
-          </>
-        )}
-      </ScrollView>
+              </>
+            )}
+          </ScrollView>
+        </Animated.View>
+      </GestureDetector>
     </>
   );
 }
@@ -647,7 +649,15 @@ function InsightsContent() {
 
 export default function YouScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [activeTab, setActiveTab] = useState<TabType>('history');
+  const route = useRoute<RouteProp<{ You: { tab?: TabType } }, 'You'>>();
+  const [activeTab, setActiveTab] = useState<TabType>('insights');
+
+  useEffect(() => {
+    if (route.params?.tab) {
+      setActiveTab(route.params.tab);
+      navigation.setParams({ tab: undefined } as any);
+    }
+  }, [route.params?.tab]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -669,19 +679,19 @@ export default function YouScreen() {
 
         <View style={styles.tabControl}>
           <Pressable
-            style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('history')}
-          >
-            <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
-              History
-            </Text>
-          </Pressable>
-          <Pressable
             style={[styles.tabBtn, activeTab === 'insights' && styles.tabBtnActive]}
             onPress={() => setActiveTab('insights')}
           >
             <Text style={[styles.tabText, activeTab === 'insights' && styles.tabTextActive]}>
               Insights
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabBtn, activeTab === 'history' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('history')}
+          >
+            <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+              History
             </Text>
           </Pressable>
         </View>
@@ -761,35 +771,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  segmentControl: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: 8,
-    padding: 2,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  segmentBtnActive: {
-    backgroundColor: colors.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  segmentText: {
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-    color: colors.text,
-  },
-  segmentTextActive: {
-    color: colors.primary,
-  },
   scrollView: {
     flex: 1,
   },
@@ -836,6 +817,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     flex: 1,
+    marginBottom: 12,
   },
   menuButton: {
     padding: 8,

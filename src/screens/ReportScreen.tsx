@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,14 +14,18 @@ import GradeProgressionChart from '../components/charts/GradeProgressionChart';
 import WeeklyActivityChart from '../components/charts/WeeklyActivityChart';
 import GradeDistributionChart from '../components/charts/GradeDistributionChart';
 import SessionCalendarChart from '../components/charts/SessionCalendarChart';
-
-const CLIMB_TYPES: ClimbType[] = ['boulder', 'sport', 'trad'];
+import { AnimatedSegmentControl } from '../components/AnimatedSegmentControl';
+import { useSwipeableType } from '../hooks/useSwipeableType';
 
 export default function ReportScreen() {
   const navigation = useNavigation();
   const { settings } = useSettings();
   const [selectedType, setSelectedType] = useState<ClimbType>('boulder');
   const { climbs, isLoading } = useClimbs();
+  const [segmentWidth, setSegmentWidth] = useState(0);
+
+  const { panGesture, contentAnimatedStyle, indicatorAnimatedStyle, handleSegmentPress } =
+    useSwipeableType(selectedType, setSelectedType, segmentWidth);
 
   const stats = useMemo(() => {
     const typeClimbs = climbs.filter((c) => c.type === selectedType);
@@ -124,81 +130,78 @@ export default function ReportScreen() {
             <Ionicons name="settings-outline" size={24} color={colors.text} />
           </Pressable>
         </View>
-        <View style={styles.segmentControl}>
-          {CLIMB_TYPES.map((type) => (
-            <Pressable
-              key={type}
-              style={[styles.segmentBtn, selectedType === type && styles.segmentBtnActive]}
-              onPress={() => setSelectedType(type)}
-            >
-              <Text style={[styles.segmentText, selectedType === type && styles.segmentTextActive]}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <AnimatedSegmentControl
+          selectedType={selectedType}
+          onTypeChange={handleSegmentPress}
+          indicatorAnimatedStyle={indicatorAnimatedStyle}
+          onSegmentWidthChange={setSegmentWidth}
+        />
       </View>
 
-      <ScrollView style={styles.content}>
-        {climbs.length === 0 || stats.recentTotal === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>
-              No climbs logged yet.{'\n'}Log some climbs to see your report!
-            </Text>
-          </View>
-        ) : (
-          <>
-            <GradeDistributionChart climbs={climbs} type={selectedType} />
-            <SessionCalendarChart climbs={climbs} type={selectedType} />
-            <GradeProgressionChart climbs={climbs} type={selectedType} />
-            <WeeklyActivityChart climbs={climbs} type={selectedType} />
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Summary ({stats.weeksToShow} Weeks)</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentSends}</Text>
-                  <Text style={styles.statLabel}>Sends</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentAttempts}</Text>
-                  <Text style={styles.statLabel}>Attempts</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentMaxGrade}</Text>
-                  <Text style={styles.statLabel}>Highest Send</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.recentTotal}</Text>
-                  <Text style={styles.statLabel}>Total Climbs</Text>
-                </View>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[{ flex: 1 }, contentAnimatedStyle]}>
+          <ScrollView style={styles.content}>
+            {climbs.length === 0 || stats.recentTotal === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  No climbs logged yet.{'\n'}Log some climbs to see your report!
+                </Text>
               </View>
-            </View>
+            ) : (
+              <>
+                <GradeDistributionChart climbs={climbs} type={selectedType} />
+                <SessionCalendarChart climbs={climbs} type={selectedType} />
+                <GradeProgressionChart climbs={climbs} type={selectedType} />
+                <WeeklyActivityChart climbs={climbs} type={selectedType} />
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>All Time</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.allTimeSends}</Text>
-                  <Text style={styles.statLabel}>Total Sends</Text>
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Summary ({stats.weeksToShow} Weeks)</Text>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentSends}</Text>
+                      <Text style={styles.statLabel}>Sends</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentAttempts}</Text>
+                      <Text style={styles.statLabel}>Attempts</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentMaxGrade}</Text>
+                      <Text style={styles.statLabel}>Highest Send</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.recentTotal}</Text>
+                      <Text style={styles.statLabel}>Total Climbs</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.allTimeMaxGrade}</Text>
-                  <Text style={styles.statLabel}>Highest Send</Text>
+
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>All Time</Text>
+                  <View style={styles.statsGrid}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.allTimeSends}</Text>
+                      <Text style={styles.statLabel}>Total Sends</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.allTimeMaxGrade}</Text>
+                      <Text style={styles.statLabel}>Highest Send</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.daysSinceFirst}</Text>
+                      <Text style={styles.statLabel}>Days Climbing</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{stats.firstTick}</Text>
+                      <Text style={styles.statLabel}>First Tick</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.daysSinceFirst}</Text>
-                  <Text style={styles.statLabel}>Days Climbing</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{stats.firstTick}</Text>
-                  <Text style={styles.statLabel}>First Tick</Text>
-                </View>
-              </View>
-            </View>
-          </>
-        )}
-      </ScrollView>
+              </>
+            )}
+          </ScrollView>
+        </Animated.View>
+      </GestureDetector>
     </SafeAreaView>
   );
 }
@@ -231,35 +234,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     padding: 4,
-  },
-  segmentControl: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: 8,
-    padding: 2,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  segmentBtnActive: {
-    backgroundColor: colors.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  segmentText: {
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-    color: colors.text,
-  },
-  segmentTextActive: {
-    color: colors.primary,
   },
   content: {
     flex: 1,

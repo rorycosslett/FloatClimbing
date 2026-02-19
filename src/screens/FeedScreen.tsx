@@ -13,12 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
 import { useSocial } from '../context/SocialContext';
 import { useClimbs } from '../context/ClimbContext';
 import { colors } from '../theme/colors';
 import { ActivityFeedItem } from '../types';
 import ActivityFeedCard from '../components/ActivityFeedCard';
+import CommentsModal from '../components/CommentsModal';
 
 type RootStackParamList = {
   Main: undefined;
@@ -77,12 +79,16 @@ function EmptyFeedState() {
 export default function FeedScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { isGuest, user } = useAuth();
-  const { feed, feedLoading, feedError, hasMoreFeed, refreshFeed, loadMoreFeed, removeFeedItem } =
-    useSocial();
+  const {
+    feed, feedLoading, feedError, hasMoreFeed, refreshFeed, loadMoreFeed, removeFeedItem,
+    likeFeedItem, unlikeFeedItem, getComments, addComment, deleteComment,
+  } = useSocial();
   const { deleteSession } = useClimbs();
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
   const [actionMenuItem, setActionMenuItem] = useState<ActivityFeedItem | null>(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [commentsVisible, setCommentsVisible] = useState(false);
+  const [commentsFeedItem, setCommentsFeedItem] = useState<ActivityFeedItem | null>(null);
 
   if (isGuest) {
     return <SignInPrompt />;
@@ -132,12 +138,33 @@ export default function FeedScreen() {
     setActionMenuItem(null);
   };
 
+  const handleLikePress = (item: ActivityFeedItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (item.isLikedByMe) {
+      unlikeFeedItem(item.id);
+    } else {
+      likeFeedItem(item.id);
+    }
+  };
+
+  const handleCommentPress = (item: ActivityFeedItem) => {
+    setCommentsFeedItem(item);
+    setCommentsVisible(true);
+  };
+
+  const handleCloseComments = () => {
+    setCommentsVisible(false);
+    setCommentsFeedItem(null);
+  };
+
   const renderItem = ({ item }: { item: ActivityFeedItem }) => (
     <ActivityFeedCard
       item={item}
       onProfilePress={handleProfilePress}
       isOwnSession={item.userId === user?.id}
       onMenuPress={handleMenuPress}
+      onLikePress={handleLikePress}
+      onCommentPress={handleCommentPress}
     />
   );
 
@@ -240,6 +267,19 @@ export default function FeedScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <CommentsModal
+        visible={commentsVisible}
+        feedItem={commentsFeedItem}
+        onClose={handleCloseComments}
+        onLoadComments={getComments}
+        onAddComment={addComment}
+        onDeleteComment={deleteComment}
+        onProfilePress={(userId) => {
+          handleCloseComments();
+          handleProfilePress(userId);
+        }}
+      />
     </SafeAreaView>
   );
 }

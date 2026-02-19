@@ -2,6 +2,13 @@ import React from 'react';
 import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 import { ActivityFeedItem, Climb, ClimbType, GradeSettings, GradeCount } from '../types';
 import { useSettings } from '../context/SettingsContext';
@@ -13,6 +20,8 @@ interface ActivityFeedCardProps {
   onProfilePress: (userId: string) => void;
   isOwnSession?: boolean;
   onMenuPress?: (item: ActivityFeedItem) => void;
+  onLikePress: (item: ActivityFeedItem) => void;
+  onCommentPress: (item: ActivityFeedItem) => void;
 }
 
 function formatSessionTimestamp(timestamp: string): string {
@@ -93,11 +102,49 @@ function buildPills(
   return pills;
 }
 
+function AnimatedHeartButton({
+  isLiked,
+  onPress,
+}: {
+  isLiked: boolean;
+  onPress: (e: any) => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = (e: any) => {
+    if (!isLiked) {
+      scale.value = withSequence(
+        withTiming(1.3, { duration: 100, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 100, easing: Easing.in(Easing.ease) })
+      );
+    }
+    onPress(e);
+  };
+
+  return (
+    <Pressable style={styles.actionButton} onPress={handlePress} hitSlop={12}>
+      <Animated.View style={animatedStyle}>
+        <Ionicons
+          name={isLiked ? 'heart' : 'heart-outline'}
+          size={26}
+          color={isLiked ? colors.danger : colors.textSecondary}
+        />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 export default function ActivityFeedCard({
   item,
   onProfilePress,
   isOwnSession,
   onMenuPress,
+  onLikePress,
+  onCommentPress,
 }: ActivityFeedCardProps) {
   const { settings } = useSettings();
   const { user, metadata, createdAt, climbs } = item;
@@ -224,6 +271,57 @@ export default function ActivityFeedCard({
             )}
           </View>
         )}
+      </View>
+
+      {/* Engagement Summary */}
+      <View style={styles.engagementSummary}>
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            onLikePress(item);
+          }}
+          hitSlop={4}
+        >
+          {item.likeCount > 0 && (
+            <Text style={styles.engagementText}>
+              {item.likeCount === 1 ? '1 like' : `${item.likeCount} likes`}
+            </Text>
+          )}
+        </Pressable>
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            onCommentPress(item);
+          }}
+          hitSlop={4}
+        >
+          {item.commentCount > 0 && (
+            <Text style={styles.engagementText}>
+              {item.commentCount === 1 ? '1 comment' : `${item.commentCount} comments`}
+            </Text>
+          )}
+        </Pressable>
+      </View>
+
+      {/* Action Bar */}
+      <View style={styles.actionBar}>
+        <AnimatedHeartButton
+          isLiked={item.isLikedByMe}
+          onPress={(e) => {
+            e.stopPropagation();
+            onLikePress(item);
+          }}
+        />
+        <Pressable
+          style={styles.actionButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            onCommentPress(item);
+          }}
+          hitSlop={12}
+        >
+          <Ionicons name="chatbubble-outline" size={24} color={colors.textSecondary} />
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -361,5 +459,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 2,
+  },
+  engagementSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  engagementText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 14,
+  },
+  actionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 24,
   },
 });

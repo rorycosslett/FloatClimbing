@@ -25,14 +25,6 @@ function formatTime(timestamp: string): string {
   });
 }
 
-function formatDuration(ms: number): string {
-  const durationMins = Math.floor(ms / 60000);
-  if (durationMins >= 60) {
-    return `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`;
-  }
-  return `${durationMins}m`;
-}
-
 function formatSessionDate(timestamp: string): string {
   const date = new Date(timestamp);
   const today = new Date();
@@ -44,9 +36,8 @@ function formatSessionDate(timestamp: string): string {
     return 'Yesterday';
   } else {
     return date.toLocaleDateString('en-US', {
-      month: 'long',
+      month: 'short',
       day: 'numeric',
-      year: 'numeric',
     });
   }
 }
@@ -346,8 +337,7 @@ export default function HistoryScreen() {
                 </Pressable>
               </View>
               <Text style={styles.cardSubtitle}>
-                {formatSessionDate(session.startTime)} at {formatTime(session.startTime)} ·{' '}
-                {formatDuration(session.durationMs)}
+                {formatSessionDate(session.startTime)} at {formatTime(session.startTime)}
               </Text>
             </View>
 

@@ -38,7 +38,7 @@ import { SwipeableClimbPill } from '../components/SwipeableClimbPill';
 
 type TabParamList = {
   Log: undefined;
-  You: undefined;
+  You: { tab?: 'history' | 'insights' } | undefined;
   Home: undefined;
 };
 
@@ -233,7 +233,7 @@ export default function EditSessionScreen() {
   };
 
   const handleBack = () => {
-    navigation.navigate('Main', { screen: 'You' });
+    navigation.navigate('Main', { screen: 'You', params: { tab: 'history' } });
   };
 
   const handleDeleteSession = () => {
@@ -246,7 +246,7 @@ export default function EditSessionScreen() {
       deleteSessionPhoto(sessionId).catch(console.error);
     }
     setDeleteConfirmVisible(false);
-    navigation.navigate('Main', { screen: 'You' });
+    navigation.navigate('Main', { screen: 'You', params: { tab: 'history' } });
     Toast.show({
       type: 'success',
       text1: 'Session deleted',
