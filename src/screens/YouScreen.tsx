@@ -655,7 +655,7 @@ export default function YouScreen() {
   useEffect(() => {
     if (route.params?.tab) {
       setActiveTab(route.params.tab);
-      navigation.setParams({ tab: undefined } as any);
+      navigation.setParams({ tab: undefined });
     }
   }, [route.params?.tab]);
 

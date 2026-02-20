@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ClimbProvider } from './src/context/ClimbContext';
 import { SettingsProvider } from './src/context/SettingsContext';
 import { SocialProvider } from './src/context/SocialContext';
+import { NotificationProvider } from './src/context/NotificationContext';
 import { colors } from './src/theme/colors';
 import LoginScreen from './src/screens/LoginScreen';
 import LogScreen from './src/screens/LogScreen';
@@ -169,17 +170,19 @@ export default function App() {
       <ErrorBoundary>
         <SafeAreaProvider>
           <AuthProvider>
-            <SettingsProvider>
-              <ClimbProvider>
-                <SocialProvider>
-                  <NavigationContainer>
-                    <AppNavigator />
-                    <StatusBar style="light" />
-                  </NavigationContainer>
-                  <Toast config={toastConfig} />
-                </SocialProvider>
-              </ClimbProvider>
-            </SettingsProvider>
+            <NotificationProvider>
+              <SettingsProvider>
+                <ClimbProvider>
+                  <SocialProvider>
+                    <NavigationContainer>
+                      <AppNavigator />
+                      <StatusBar style="light" />
+                    </NavigationContainer>
+                    <Toast config={toastConfig} />
+                  </SocialProvider>
+                </ClimbProvider>
+              </SettingsProvider>
+            </NotificationProvider>
           </AuthProvider>
         </SafeAreaProvider>
       </ErrorBoundary>

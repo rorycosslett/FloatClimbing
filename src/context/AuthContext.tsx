@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../services/supabase';
+import { notificationService } from '../services/notificationService';
 
 // Required for OAuth to work properly on native
 WebBrowser.maybeCompleteAuthSession();
@@ -149,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    await notificationService.unregisterPushToken();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     setIsGuest(false);

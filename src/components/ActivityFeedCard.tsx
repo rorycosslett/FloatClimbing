@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Image, StyleSheet, GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -107,7 +107,7 @@ function AnimatedHeartButton({
   onPress,
 }: {
   isLiked: boolean;
-  onPress: (e: any) => void;
+  onPress: (e: GestureResponderEvent) => void;
 }) {
   const scale = useSharedValue(1);
 
@@ -115,7 +115,7 @@ function AnimatedHeartButton({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePress = (e: any) => {
+  const handlePress = (e: GestureResponderEvent) => {
     if (!isLiked) {
       scale.value = withSequence(
         withTiming(1.3, { duration: 100, easing: Easing.out(Easing.ease) }),

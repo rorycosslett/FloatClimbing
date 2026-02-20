@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import { stravaService } from '../services/stravaService';
 import { colors } from '../theme/colors';
 
@@ -18,8 +20,11 @@ type RootStackParamList = {
 export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { signOut, deleteAccount, isGuest, session } = useAuth();
+  const { expoPushToken, requestPermissions, disableNotifications } = useNotifications();
   const [stravaConnected, setStravaConnected] = useState(false);
   const [stravaLoading, setStravaLoading] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(!!expoPushToken);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -27,6 +32,54 @@ export default function SettingsScreen() {
       stravaService.isConnected().then(setStravaConnected).catch(console.error);
     }
   }, [session]);
+
+  useEffect(() => {
+    setNotificationsEnabled(!!expoPushToken);
+  }, [expoPushToken]);
+
+  const handleEnableNotifications = async () => {
+    setNotificationsLoading(true);
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === 'denied') {
+        Alert.alert(
+          'Notifications Disabled',
+          'Enable notifications in your device settings to receive alerts.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
+      const token = await requestPermissions();
+      setNotificationsEnabled(!!token);
+    } catch (error) {
+      console.error('Enable notifications error:', error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const handleDisableNotifications = () => {
+    Alert.alert('Disable Notifications', 'You will no longer receive push notifications.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Disable',
+        style: 'destructive',
+        onPress: async () => {
+          setNotificationsLoading(true);
+          try {
+            await disableNotifications();
+          } catch (error) {
+            console.error('Disable notifications error:', error);
+          } finally {
+            setNotificationsLoading(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleStravaConnect = async () => {
     setStravaLoading(true);
@@ -167,6 +220,35 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           </Pressable>
+
+          {session && (
+            <>
+              <View style={styles.separator} />
+              <Pressable
+                style={styles.menuRow}
+                onPress={notificationsEnabled ? handleDisableNotifications : handleEnableNotifications}
+                disabled={notificationsLoading}
+              >
+                <View style={styles.menuRowLeft}>
+                  <Ionicons name="notifications-outline" size={22} color={colors.text} />
+                  <Text style={styles.menuRowLabel}>Notifications</Text>
+                </View>
+                {notificationsLoading ? (
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                ) : notificationsEnabled ? (
+                  <View style={styles.stravaStatus}>
+                    <Text style={styles.stravaConnectedText}>Enabled</Text>
+                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                  </View>
+                ) : (
+                  <View style={styles.stravaStatus}>
+                    <Text style={styles.stravaConnectText}>Enable</Text>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                  </View>
+                )}
+              </Pressable>
+            </>
+          )}
 
           {session && (
             <>

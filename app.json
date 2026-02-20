@@ -77,6 +77,13 @@
           "photosPermission": "The app needs access to your photos to set a profile picture or add session photos.",
           "cameraPermission": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#007AFF"
+        }
       ]
     ]
   }
